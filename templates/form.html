@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nueva Solicitud VivaAP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background-color: #1F7A83;
+            text-align: center;
+            padding: 25px 10px;
+            color: white;
+        }
+
+        .header img {
+            width: 180px;
+            margin-bottom: 10px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #1F7A83;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            width: 100%;
+            background-color: #1F7A83;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #17646c;
+        }
+
+        .flash {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+        <h1>Portal de Solicitudes VivaAP</h1>
+    </div>
+
+    <div class="container">
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash">
+                    {% for mensaje in messages %}
+                        {{ mensaje }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <h2>Enviar Nueva Solicitud</h2>
+
+        <form method="POST" action="{{ url_for('crear_solicitud') }}" enctype="multipart/form-data">
+
+            <label>Razón Social:</label>
+            <input type="text" name="razon_social" required>
+
+            <label>Nombre solicitante:</label>
+            <input type="text" name="nombre_remitente" required>
+
+            <label>Correo:</label>
+            <input type="email" name="correo_contacto" required>
+
+            <label>Teléfono:</label>
+            <input type="text" name="telefono_contacto" required>
+
+            <label>Póliza:</label>
+            <input type="text" name="poliza">
+
+            <label>Tipo de solicitud:</label>
+            <select name="tipo_solicitud" required>
+                <option value="Ingreso">Ingreso</option>
+                <option value="Retiro">Retiro</option>
+                <option value="Cancelación">Cancelación</option>
+                <option value="Renovación">Renovación</option>
+                <option value="Reclamación">Reclamación</option>
+                <option value="Modificación">Modificación</option>
+                <option value="Copia de documento">Copia de documento</option>
+                <option value="Otro">Otro</option>
+            </select>
+
+	    <label>Asignar a:</label>
+	    <select name="asignado_a" required>
+    		<option value="">Seleccione un empleado</option>
+    		{% for e in empleados %}
+        	    <option value="{{ e[0] }}">{{ e[1] }}</option>
+    		{% endfor %}
+	    </select>
+
+
+
+
+            <label>Descripción</label>
+            <textarea name="descripcion" required></textarea>
+
+            <label>Adjuntar archivos:</label>
+            <input type="file" name="archivos" multiple>
+
+            <button type="submit">Enviar solicitud</button>
+
+        </form>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Crear Usuario</title>
+</head>
+<body>
+
+<h2>Crear Usuario Interno / Externo</h2>
+
+<form method="POST">
+    Usuario:<br>
+    <input type="text" name="username" required><br><br>
+
+    Nombre completo:<br>
+    <input type="text" name="nombre" required><br><br>
+
+    Contraseña:<br>
+    <input type="password" name="password" required><br><br>
+
+    Rol:<br>
+    <select name="rol">
+        <option value="interno">Interno (puede gestionar casos)</option>
+        <option value="externo">Externo (solo consulta)</option>
+    </select><br><br>
+
+    <button type="submit">Crear Usuario</button>
+</form>
+
+</body>
+</html>

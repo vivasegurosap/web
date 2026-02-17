@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Solicitud de Novedades</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background-color: #1F7A83;
+            text-align: center;
+            padding: 25px 10px;
+            color: white;
+        }
+
+        .header img {
+            width: 180px;
+            margin-bottom: 10px;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: #1F7A83;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background-color: #1F7A83;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #17646c;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th {
+            background-color: #1F7A83;
+            color: white;
+            padding: 10px;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        hr {
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+    <h1>Solicitud de Novedades VivaAP</h1>
+</div>
+
+<div class="container">
+
+    {% if current_user.rol == "interno" %}
+        <div style="text-align:right; margin-bottom:15px;">
+            <a href="/crear_usuario">
+                <button type="button">➕ Crear Usuario</button>
+            </a>
+        </div>
+    {% endif %}
+
+    <h2> ¿Que Desea Radicar?</h2>
+
+
+    <form method="POST" action="/crear_solicitud" enctype="multipart/form-data">
+        <label>Empresa:</label>
+        <input type="text" name="razon_social" required>
+
+        <label>Nombre del Solicitante:</label>
+        <input type="text" name="nombre_remitente" required>
+
+        <label>Correo:</label>
+        <input type="email" name="correo_contacto">
+
+        <label>Teléfono:</label>
+        <input type="text" name="telefono_contacto">
+
+        <label>Póliza:</label>
+        <input type="text" name="poliza">
+
+        <label>Tipo de Solicitud:</label>
+        <select name="tipo_solicitud" required>
+    		<option value="Ingreso">Ingreso</option>
+    		<option value="Retiro">Retiro</option>
+    		<option value="Cancelación">Cancelación</option>
+    		<option value="Renovación">Renovación</option>
+    		<option value="Reclamación">Reclamación</option>
+    		<option value="Modificación">Modificación</option>
+    		<option value="Copia de documento">Copia de documento</option>
+    		<option value="Otro">Otro</option>
+	</select>
+
+	<label>Asignar a:</label>
+	<select name="asignado_a" required>
+    	    <option value="">-- Seleccione empleado --</option>
+   	    {% for e in empleados %}
+    		<option value="{{ e[0] }}">{{ e[1] }}</option>
+	    {% endfor %}
+	</select>
+
+
+        <label>Descripción:</label>
+        <textarea name="descripcion"></textarea>
+
+        <label>Adjuntar archivos:</label>
+	<input type="file" name="archivos" multiple
+       		accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+
+        <button type="submit">Enviar Solicitud</button>
+    </form>
+
+    <hr>
+
+    <h2> Casos Registrados</h2>
+
+    <table>
+        <tr>
+            <th>Radicado</th>
+            <th>Empresa</th>
+            <th>Solicitante</th>
+            <th>Tipo</th>
+	    <th>Asignado a</th>
+            <th>Estado</th>
+        </tr>
+
+        {% for s in solicitudes %}
+        <tr>
+            <td>{{ s.radicado }}</td>
+            <td>{{ s.razon_social }}</td>
+            <td>{{ s.nombre_remitente }}</td>
+            <td>{{ s.tipo_solicitud }}</td>
+	    <td>{{ s.asignado_nombre }}</td>
+            <td>
+    		<b>{{ s.estado }}</b>
+
+    		{% if current_user.rol == "interno" %}
+        	<div style="margin-top:8px; font-size:12px;">
+            	<a href="{{ url_for('estado', id=s.id, estado='Pendiente') }}">⚪ Pendiente</a><br>
+            	<a href="{{ url_for('estado', id=s.id, estado='En proceso') }}">🟡 En proceso</a><br>
+            	<a href="{{ url_for('estado', id=s.id, estado='Resuelto') }}">🟢 Resuelto</a><br>
+            	<a href="{{ url_for('estado', id=s.id, estado='Cerrado') }}">🔴 Cerrar</a>
+            </div>
+    	  {% endif %}
+	</td>
+
+        </tr>
+        {% endfor %}
+    </table>
+
+</div>
+
+</body>
+</html>
