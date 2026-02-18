@@ -68,3 +68,33 @@ WHERE id = 2;
 
 
 TRUNCATE TABLE solicitudes;
+
+ALTER TABLE solicitudes
+ADD asignado_a VARCHAR(100);
+
+ALTER TABLE usuarios
+ADD correo VARCHAR(150);
+
+INSERT INTO usuarios
+(username, password_hash, nombre_completo, rol, activo, fecha_creacion, correo)
+VALUES
+
+SELECT id, username, nombre_completo, rol, activo 
+FROM usuarios
+
+CREATE VIEW vw_solicitudes_completas AS
+SELECT 
+    s.id,
+    s.razon_social,
+    s.nombre_remitente,
+    s.correo_contacto,
+    s.telefono_contacto,
+    s.poliza,
+    s.tipo_solicitud,
+    s.descripcion,
+    u.nombre_completo AS asignado_a
+FROM solicitudes s
+LEFT JOIN usuarios u 
+    ON s.asignado_a = u.id;
+
+	SELECT * FROM vw_solicitudes_completas;
