@@ -4,3 +4,4 @@ flask-login
 gunicorn
 pyodbc
 psycopg2-binary
+gunicorn
