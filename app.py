@@ -176,6 +176,15 @@ def crear_solicitud():
     conn = get_db()
     cursor = conn.cursor()
 
+    # VALIDACIÓN SEGURA DE ASIGNADO_A
+    try:
+        asignado_a = int(request.form.get("asignado_a"))
+    except (TypeError, ValueError):
+        flash("Debe seleccionar un empleado válido")
+        conn.close()
+        return redirect(url_for("panel"))
+
+
     # Guardar solicitud en la base de datos
     cursor.execute("""
         INSERT INTO solicitudes
@@ -192,7 +201,8 @@ def crear_solicitud():
         request.form['poliza'],
         request.form['tipo_solicitud'],
         request.form['descripcion'],
-        request.form['asignado_a']
+        asignado_a
+
     ))
 
 

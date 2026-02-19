@@ -139,10 +139,10 @@
 
 	<label>Asignar a:</label>
 	<select name="asignado_a" required>
-    	    <option value="" disabled selected>Seleccione un empleado</option>
-   	    {% for e in empleados %}
-    		<option value="{{ e[0] }}">{{ e[1] }}</option>
-	    {% endfor %}
+    		<option value="">Seleccione un empleado</option>
+    		{% for e in empleados %}
+        	    <option value="{{ e.id }}">{{ e.nombre_completo }}</option>
+    		{% endfor %}
 	</select>
 
 
