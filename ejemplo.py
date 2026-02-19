@@ -5,10 +5,11 @@ from flask_mail import Mail, Message
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-import pyodbc, os
 from datetime import datetime
 import random
 import smtplib
+import psycopg2
+import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -45,14 +46,8 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 
 def get_db():
-    return pyodbc.connect(
-        r'DRIVER={ODBC Driver 17 for SQL Server};'
-        r'SERVER=127.0.0.1\SQLEXPRESS;'
-        r'DATABASE=VIVASEGUROS;'
-        r'Trusted_Connection=yes;'
-        r'TrustServerCertificate=yes;'
-    )
-
+    database_url = os.environ.get("DATABASE_URL")
+    return psycopg2.connect(database_url)
 
 class User(UserMixin):
     def __init__(self, id, username, rol):
@@ -64,7 +59,7 @@ class User(UserMixin):
 def load_user(user_id):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id, username, rol FROM usuarios WHERE id=?", user_id)
+    cur.execute("SELECT id, username, rol FROM usuarios WHERE id=%s", (user_id,))
     row = cur.fetchone()
     conn.close()
 
@@ -84,7 +79,7 @@ def login():
         p = request.form['password']
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT id, password_hash, rol FROM usuarios WHERE username=?", u)
+        cur.execute("SELECT id, password_hash, rol FROM usuarios WHERE username=%s", (u,))
         user = cur.fetchone()
         if user and check_password_hash(user[1], p):
             login_user(User(user[0], u, user[2]))
@@ -110,8 +105,9 @@ def crear_usuario():
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO usuarios (username, password_hash, nombre_completo, rol, activo, fecha_creacion)
-            VALUES (?, ?, ?, ?, 1, GETDATE())
-        """, username, password_hash, nombre, rol)
+            VALUES (%s, %s, %s, %s, TRUE, NOW())
+        """, (username, password_hash, nombre, rol))
+
 
         conn.commit()
         conn.close()
@@ -185,25 +181,27 @@ def crear_solicitud():
     cursor.execute("""
         INSERT INTO solicitudes
         (razon_social, nombre_remitente, correo_contacto,
-         telefono_contacto, poliza, tipo_solicitud, descripcion, asignado_a)
-        OUTPUT INSERTED.id
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        telefono_contacto, poliza, tipo_solicitud, descripcion, asignado_a)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
     """,
-    request.form['razon_social'],
-    request.form['nombre_remitente'],
-    request.form['correo_contacto'],
-    request.form['telefono_contacto'],
-    request.form['poliza'],
-    request.form['tipo_solicitud'],
-    request.form['descripcion'],
-    request.form['asignado_a']
-    )
+    (
+        request.form['razon_social'],
+        request.form['nombre_remitente'],
+        request.form['correo_contacto'],
+        request.form['telefono_contacto'],
+        request.form['poliza'],
+        request.form['tipo_solicitud'],
+        request.form['descripcion'],
+        request.form['asignado_a']
+    ))
+
 
     nuevo_id = cursor.fetchone()[0]
 
     # Crear radicado
     radicado = f"RAD-{nuevo_id:05d}"
-    cursor.execute("UPDATE solicitudes SET radicado = ? WHERE id = ?", radicado, nuevo_id)
+    cursor.execute("UPDATE solicitudes SET radicado = %s WHERE id = %s", (radicado, nuevo_id))
     conn.commit()
     conn.close()
 
@@ -261,12 +259,13 @@ def estado(id, estado):
 
     cur.execute("""
         UPDATE solicitudes 
-        SET estado=?, atendido_por=? 
-        WHERE id=?
+        SET estado=%s, atendido_por=%s 
+        WHERE id=%s
     """, (estado, current_user.username, id))
 
+
     if estado == "Cerrado":
-        cur.execute("UPDATE solicitudes SET fecha_cierre=GETDATE() WHERE id=?", id)
+        cur.execute("UPDATE solicitudes SET fecha_cierre=NOW() WHERE id=%s", (id,))
 
     conn.commit()
     conn.close()
