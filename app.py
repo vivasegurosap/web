@@ -4,6 +4,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import psycopg2
+import psycopg2.extras
 import os
 from datetime import datetime
 import random
@@ -141,7 +142,7 @@ def form():
 @login_required
 def panel():
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     # Solicitudes
     cursor.execute("""
