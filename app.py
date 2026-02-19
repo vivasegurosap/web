@@ -116,25 +116,26 @@ def crear_usuario():
 
     return render_template('crear_usuario.html')
 
-
 # FORMULARIO
 @app.route('/')
 @login_required
 def form():
     conn = get_db()
-    cur = conn.cursor()
-    
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
     cur.execute("""
-    SELECT id, nombre_completo 
-    FROM usuarios 
-    WHERE rol='interno' AND activo=TRUE
-    ORDER BY nombre_completo
+        SELECT id, nombre_completo 
+        FROM usuarios 
+        WHERE rol='interno' AND activo=TRUE
+        ORDER BY nombre_completo
     """)
-    
+
     empleados = cur.fetchall()
     conn.close()
-    
+
     return render_template('form.html', empleados=empleados)
+
+
 
 # PANEL
 @app.route('/panel')
