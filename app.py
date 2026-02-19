@@ -9,6 +9,9 @@ import os
 from datetime import datetime
 import random
 import smtplib
+import base64
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -33,6 +36,11 @@ app.secret_key = "vivaap_secret"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# --- ENDPOINT PÚBLICO PARA RENDER ---
+@app.route('/health')
+def health():
+    return "OK", 200
+
 # CORREO
 
 app.config['MAIL_USE_TLS'] = True
@@ -46,7 +54,10 @@ login_manager.init_app(app)
 
 def get_db():
     database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL no definida en entorno")
     return psycopg2.connect(database_url)
+
 
 
 class User(UserMixin):
@@ -240,13 +251,32 @@ Descripción:
             msg.attach(part)
 
     # Enviar correo vía SMTP
-    with smtplib.SMTP('smtp.gmail.com', 587) as server:
-        server.starttls()
-        server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
-        server.send_message(msg)
+    # --- Enviar correo vía SendGrid
+try:
+    message = Mail(
+        from_email='tecnologiasvisuales940@gmail.com',  # puede ser el mismo que usabas antes
+        to_emails=['tecnologiasvisuales940@gmail.com', 'lider.estrategia@vivasegurosltda.com.co'],
+        subject=f"{radicado} - {request.form['tipo_solicitud']} - Póliza {request.form['poliza']}",
+        plain_text_content=cuerpo
+    )
 
-    flash(f"Solicitud enviada correctamente. Radicado: {radicado}")
-    return redirect('/')
+    # Adjuntar archivos
+    for archivo in request.files.getlist('archivos'):
+        if archivo and archivo.filename:
+            content = base64.b64encode(archivo.read()).decode()
+            attachment = Attachment(
+                FileContent(content),
+                FileName(archivo.filename),
+                FileType(archivo.content_type),
+                Disposition('attachment')
+            )
+            message.attachment = attachment
+
+    sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+    sg.send(message)
+except Exception as e:
+    print("Error enviando correo:", e)
+
 
 # CAMBIAR ESTADO
 @app.route('/estado/<int:id>/<estado>')
@@ -272,4 +302,8 @@ def estado(id, estado):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    # Solo activar debug si no es Render
+    if "RENDER" not in os.environ:
+        app.run(host="0.0.0.0", port=port, debug=True)
+
