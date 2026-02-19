@@ -126,7 +126,7 @@
 
 	    <label>Asignar a:</label>
 	    <select name="asignado_a" required>
-    		<option value="">Seleccione un empleado</option>
+    		<option value="" disabled selected>Seleccione un empleado</option>
     		{% for e in empleados %}
         	    <option value="{{ e[0] }}">{{ e[1] }}</option>
     		{% endfor %}
