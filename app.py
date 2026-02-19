@@ -303,7 +303,6 @@ def estado(id, estado):
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
-    # Solo activar debug si no es Render
-    if "RENDER" not in os.environ:
-        app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
+
 
