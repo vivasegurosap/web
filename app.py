@@ -127,7 +127,7 @@ def form():
     cur.execute("""
     SELECT id, nombre_completo 
     FROM usuarios 
-    WHERE rol='interno' AND activo=1
+    WHERE rol='interno' AND activo=TRUE
     ORDER BY nombre_completo
     """)
     
@@ -156,7 +156,7 @@ def panel():
     cursor.execute("""
         SELECT id, nombre_completo
         FROM usuarios
-        WHERE rol='interno' AND activo=1
+        WHERE rol='interno' AND activo
         ORDER BY nombre_completo
     """)
     empleados = cursor.fetchall()
