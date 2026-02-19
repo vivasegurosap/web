@@ -7,6 +7,7 @@ from datetime import datetime
 import random
 import smtplib
 import psycopg2
+import psycopg2.extras
 import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -140,7 +141,7 @@ def form():
 @login_required
 def panel():
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     # Solicitudes
     cursor.execute("""
