@@ -3,15 +3,10 @@ from flask_mail import Mail, Message
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-import psycopg2
-import psycopg2.extras
-import os
+import pyodbc, os
 from datetime import datetime
 import random
 import smtplib
-import base64
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -36,11 +31,6 @@ app.secret_key = "vivaap_secret"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# --- ENDPOINT PÚBLICO PARA RENDER ---
-@app.route('/health')
-def health():
-    return "OK", 200
-
 # CORREO
 
 app.config['MAIL_USE_TLS'] = True
@@ -53,11 +43,13 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 
 def get_db():
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        raise RuntimeError("DATABASE_URL no definida en entorno")
-    return psycopg2.connect(database_url)
-
+    return pyodbc.connect(
+        r'DRIVER={ODBC Driver 17 for SQL Server};'
+        r'SERVER=127.0.0.1\SQLEXPRESS;'
+        r'DATABASE=VIVASEGUROS;'
+        r'Trusted_Connection=yes;'
+        r'TrustServerCertificate=yes;'
+    )
 
 
 class User(UserMixin):
@@ -70,7 +62,7 @@ class User(UserMixin):
 def load_user(user_id):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id, username, rol FROM usuarios WHERE id=%s", (user_id,))
+    cur.execute("SELECT id, username, rol FROM usuarios WHERE id=?", user_id)
     row = cur.fetchone()
     conn.close()
 
@@ -90,7 +82,7 @@ def login():
         p = request.form['password']
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT id, password_hash, rol FROM usuarios WHERE username=%s", (u,))
+        cur.execute("SELECT id, password_hash, rol FROM usuarios WHERE username=?", u)
         user = cur.fetchone()
         if user and check_password_hash(user[1], p):
             login_user(User(user[0], u, user[2]))
@@ -116,9 +108,8 @@ def crear_usuario():
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO usuarios (username, password_hash, nombre_completo, rol, activo, fecha_creacion)
-            VALUES (%s, %s, %s, %s, TRUE, NOW())
-        """, (username, password_hash, nombre, rol))
-
+            VALUES (?, ?, ?, ?, 1, GETDATE())
+        """, username, password_hash, nombre, rol)
 
         conn.commit()
         conn.close()
@@ -139,7 +130,7 @@ def form():
     cur.execute("""
     SELECT id, nombre_completo 
     FROM usuarios 
-    WHERE rol='interno' AND activo=TRUE
+    WHERE rol='interno' AND activo=1
     ORDER BY nombre_completo
     """)
     
@@ -153,7 +144,7 @@ def form():
 @login_required
 def panel():
     conn = get_db()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor = conn.cursor()
 
     # Solicitudes
     cursor.execute("""
@@ -168,7 +159,7 @@ def panel():
     cursor.execute("""
         SELECT id, nombre_completo
         FROM usuarios
-        WHERE rol='interno' AND activo
+        WHERE rol='interno' AND activo=1
         ORDER BY nombre_completo
     """)
     empleados = cursor.fetchall()
@@ -192,26 +183,25 @@ def crear_solicitud():
     cursor.execute("""
         INSERT INTO solicitudes
         (razon_social, nombre_remitente, correo_contacto,
-        telefono_contacto, poliza, tipo_solicitud, descripcion, asignado_a)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id
+         telefono_contacto, poliza, tipo_solicitud, descripcion, asignado_a)
+        OUTPUT INSERTED.id
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """,
-    (
-        request.form['razon_social'],
-        request.form['nombre_remitente'],
-        request.form['correo_contacto'],
-        request.form['telefono_contacto'],
-        request.form['poliza'],
-        request.form['tipo_solicitud'],
-        request.form['descripcion'],
-        request.form['asignado_a']
-    ))
+    request.form['razon_social'],
+    request.form['nombre_remitente'],
+    request.form['correo_contacto'],
+    request.form['telefono_contacto'],
+    request.form['poliza'],
+    request.form['tipo_solicitud'],
+    request.form['descripcion'],
+    request.form['asignado_a']
+    )
 
     nuevo_id = cursor.fetchone()[0]
 
     # Crear radicado
     radicado = f"RAD-{nuevo_id:05d}"
-    cursor.execute("UPDATE solicitudes SET radicado = %s WHERE id = %s", (radicado, nuevo_id))
+    cursor.execute("UPDATE solicitudes SET radicado = ? WHERE id = ?", radicado, nuevo_id)
     conn.commit()
     conn.close()
 
@@ -251,32 +241,13 @@ Descripción:
             msg.attach(part)
 
     # Enviar correo vía SMTP
-    # --- Enviar correo vía SendGrid
-try:
-    message = Mail(
-        from_email='tecnologiasvisuales940@gmail.com',  # puede ser el mismo que usabas antes
-        to_emails=['tecnologiasvisuales940@gmail.com', 'lider.estrategia@vivasegurosltda.com.co'],
-        subject=f"{radicado} - {request.form['tipo_solicitud']} - Póliza {request.form['poliza']}",
-        plain_text_content=cuerpo
-    )
+    with smtplib.SMTP('smtp.gmail.com', 587) as server:
+        server.starttls()
+        server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
+        server.send_message(msg)
 
-    # Adjuntar archivos
-    for archivo in request.files.getlist('archivos'):
-        if archivo and archivo.filename:
-            content = base64.b64encode(archivo.read()).decode()
-            attachment = Attachment(
-                FileContent(content),
-                FileName(archivo.filename),
-                FileType(archivo.content_type),
-                Disposition('attachment')
-            )
-            message.attachment = attachment
-
-    sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
-    sg.send(message)
-except Exception as e:
-    print("Error enviando correo:", e)
-
+    flash(f"Solicitud enviada correctamente. Radicado: {radicado}")
+    return redirect('/')
 
 # CAMBIAR ESTADO
 @app.route('/estado/<int:id>/<estado>')
@@ -288,13 +259,12 @@ def estado(id, estado):
 
     cur.execute("""
         UPDATE solicitudes 
-        SET estado=%s, atendido_por=%s 
-        WHERE id=%s
+        SET estado=?, atendido_por=? 
+        WHERE id=?
     """, (estado, current_user.username, id))
 
-
     if estado == "Cerrado":
-        cur.execute("UPDATE solicitudes SET fecha_cierre=NOW() WHERE id=%s", (id,))
+        cur.execute("UPDATE solicitudes SET fecha_cierre=GETDATE() WHERE id=?", id)
 
     conn.commit()
     conn.close()
@@ -302,7 +272,4 @@ def estado(id, estado):
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-
-
+    app.run(debug=True)
