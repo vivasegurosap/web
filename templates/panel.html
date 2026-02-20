@@ -95,7 +95,11 @@
     <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
     <h1>Solicitud de Novedades VivaAP</h1>
 </div>
-
+<div style="text-align:right; margin-top:10px;">
+    <a href="{{ url_for('logout') }}">
+        <button type="button">Cerrar sesión</button>
+    </a>
+</div>
 <div class="container">
 
     {% if current_user.rol == "interno" %}
@@ -110,7 +114,7 @@
 
 
     <form method="POST" action="/crear_solicitud" enctype="multipart/form-data">
-        <label>Empresa:</label>
+        <label>Agencia Intermediaria:</label>
         <input type="text" name="razon_social" required>
 
         <label>Nombre del Solicitante:</label>

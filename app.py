@@ -116,6 +116,13 @@ def crear_usuario():
 
     return render_template('crear_usuario.html')
 
+# LOGOUT
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect('/login')
+
 # FORMULARIO
 @app.route('/')
 @login_required
@@ -123,19 +130,66 @@ def form():
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
+    # 🔹 Traer empleados para el select
     cur.execute("""
         SELECT id, nombre_completo 
         FROM usuarios 
         WHERE rol='interno' AND activo=TRUE
         ORDER BY nombre_completo
     """)
-
     empleados = cur.fetchall()
+
+    rol = current_user.rol
+
+    # 🔹 Filtros (solo si es interno/admin)
+    estado_filtro = request.args.get('estado')
+    usuario_filtro = request.args.get('usuario')
+
+    if rol == "interno":   # 👑 TU USUARIO ADMIN
+        query = """
+            SELECT s.id, s.razon_social, s.nombre_remitente, 
+                   s.tipo_solicitud, s.estado,
+                   u.nombre_completo AS asignado_nombre
+            FROM solicitudes s
+            LEFT JOIN usuarios u ON s.asignado_a = u.id
+            WHERE 1=1
+        """
+        params = []
+
+        if estado_filtro:
+            query += " AND s.estado = %s"
+            params.append(estado_filtro)
+
+        if usuario_filtro:
+            query += " AND s.asignado_a = %s"
+            params.append(usuario_filtro)
+
+        query += " ORDER BY s.id DESC"
+
+        cur.execute(query, params)
+
+    else:
+        # 👤 Usuario normal solo ve los suyos
+        cur.execute("""
+            SELECT s.id, s.razon_social, s.nombre_remitente, 
+                   s.tipo_solicitud, s.estado,
+                   u.nombre_completo AS asignado_nombre
+            FROM solicitudes s
+            LEFT JOIN usuarios u ON s.asignado_a = u.id
+            WHERE s.asignado_a = %s
+            ORDER BY s.id DESC
+        """, (current_user.id,))
+
+    solicitudes = cur.fetchall()
+
     conn.close()
 
-    return render_template('form.html', empleados=empleados)
-
-
+    return render_template(
+        'form.html',
+        empleados=empleados,
+        solicitudes=solicitudes,
+        rol=rol
+    )
 
 # PANEL
 @app.route('/panel')
