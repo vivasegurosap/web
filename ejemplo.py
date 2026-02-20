@@ -1,4 +1,7 @@
 #------------------copia antes de llevarlo a render------------------------------------------------------------------------
+#git add .
+#git commit -m "ajustes"
+#git push
 #---------------------------------------------------------------------------------------------------------------------
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_mail import Mail, Message

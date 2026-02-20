@@ -72,6 +72,29 @@
             margin-bottom: 15px;
             text-align: center;
         }
+	/* ===== TABLA CASOS ===== */
+	.tabla-casos {
+    		width: 100%;
+    		border-collapse: collapse;
+    		margin-top: 20px;
+	}
+
+	.tabla-casos th {
+    		background-color: #1F7A83;
+    		color: white;
+    		padding: 12px;
+    		text-align: left;
+	}
+
+	.tabla-casos td {
+    		padding: 10px;
+    		border-bottom: 1px solid #ddd;
+	}
+
+	.tabla-casos tr:hover {
+    		background-color: #f2f2f2;
+	}
+
     </style>
 </head>
 <body>
@@ -178,8 +201,8 @@
 	{% endif %}
 
 
-	<table border="1" width="100%" style="border-collapse: collapse;">
-    	   <tr style="background-color:#1F7A83; color:white;">
+	<table class="tabla-casos">
+    	   <tr>
         	<th>ID</th>
         	<th>Agencia</th>
         	<th>Solicitante</th>
