@@ -132,10 +132,7 @@
         <div style="text-align:right; margin-bottom:15px;">
             <a href="/crear_usuario">
                 <button type="button">➕ Crear Usuario</button>
-		<br><br>
-		<a href="{{ url_for('form') }}">
-    		    <button type="button">⬅ Volver al Formulario</button>
-            </a>
+	    </a>
         </div>
     {% endif %}
 
@@ -245,6 +242,8 @@
             <td>{{ s.tipo_solicitud }}</td>
 	    <td>{{ s.asignado_nombre }}</td>
             <td>
+
+    		<!-- Estado actual -->
     		{% if s.estado == 'Pendiente' %}
         	    <span class="badge badge-pendiente">Pendiente</span>
 
@@ -258,10 +257,20 @@
         	    <span class="badge badge-cerrado">Cerrado</span>
 
     		{% else %}
-        	    <span class="badge">{{ s.estado }}</span>
+        	    <span class="badge">Recibido</span>
     		{% endif %}
-	
-        </tr>
+
+    		<!-- OPCIONES SOLO PARA INTERNOS -->
+    		{% if current_user.rol == "interno" %}
+        	    <div style="margin-top:6px; font-size:12px;">
+            		<a href="{{ url_for('estado', id=s.id, estado='Pendiente') }}">⚪ Pendiente</a><br>
+            		<a href="{{ url_for('estado', id=s.id, estado='En proceso') }}">🟡 En proceso</a><br>
+            		<a href="{{ url_for('estado', id=s.id, estado='Resuelto') }}">🟢 Resuelto</a><br>
+            		<a href="{{ url_for('estado', id=s.id, estado='Cerrado') }}">🔴 Cerrar</a>
+        	    </div>
+    		{% endif %}
+
+	    </td>
         {% endfor %}
     </table>
 
