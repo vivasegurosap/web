@@ -98,3 +98,5 @@ LEFT JOIN usuarios u
     ON s.asignado_a = u.id;
 
 	SELECT * FROM vw_solicitudes_completas;
+
+select * from usuarios

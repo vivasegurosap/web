@@ -94,7 +94,33 @@
 	.tabla-casos tr:hover {
     		background-color: #f2f2f2;
 	}
+	/* ===== ESTADOS BONITOS ===== */
+	.badge {
+    		padding: 4px 10px;
+    		border-radius: 15px;
+    		font-size: 12px;
+    		font-weight: bold;
+	}
 
+	.badge-pendiente { 
+    		background-color: #e0e0e0; 
+    		color: #333;
+	}
+
+	.badge-proceso { 
+    		background-color: #fff3cd; 
+    		color: #856404;
+	}
+
+	.badge-resuelto { 
+    		background-color: #d4edda; 
+    		color: #155724;
+	}
+
+	.badge-cerrado { 
+    		background-color: #f8d7da; 
+    		color: #721c24;
+	}
     </style>
 </head>
 <body>
@@ -172,20 +198,19 @@
         </form>
 	<hr>
 
-	<h2>Casos Registrados</h2>
-	{% if rol == 'interno' %}
-	<form method="GET" style="margin-bottom:20px;">
+	<h2> Casos Registrados</h2>
+    	{% if current_user.rol == "interno" %}
+    	<form method="GET" style="margin-bottom:20px;">
 
-    	    <label>Estado:</label>
-	    <select name="estado">
-    		<option value="">Todos</option>
-    		<option value="Recibido">Recibido</option>
-    		<option value="Pendiente">⚪ Pendiente</option>
-    		<option value="En proceso">🟡 En proceso</option>
-    		<option value="Resuelto">🟢 Resuelto</option>
-    		<option value="Cerrar">🔴 Cerrar</option>
-	    </select>
-
+       	    <label>Estado:</label>
+            <select name="estado">
+            	<option value="">Todos</option>
+           	<option value="Recibido">Recibido</option>
+           	<option value="Pendiente">⚪ Pendiente</option>
+           	<option value="En proceso">🟡 En proceso</option>
+           	<option value="Resuelto">🟢 Resuelto</option>
+           	<option value="Cerrado">🔴 Cerrado</option>
+       	    </select>
 
     	    <label>Usuario:</label>
     	    <select name="usuario">
@@ -220,19 +245,19 @@
         	<td>{{ s.asignado_nombre }}</td>
 		<td>
     			{% if s.estado == 'Pendiente' %}
-        		   <span style="color:gray; font-weight:bold;">⚪ {{ s.estado }}</span>
+        		    <span class="badge badge-pendiente">Pendiente</span>
 
     			{% elif s.estado == 'En proceso' %}
-        		   <span style="color:orange; font-weight:bold;">🟡 {{ s.estado }}</span>
+        		    <span class="badge badge-proceso">En proceso</span>
 
     			{% elif s.estado == 'Resuelto' %}
-        		   <span style="color:green; font-weight:bold;">🟢 {{ s.estado }}</span>
+        		    <span class="badge badge-resuelto">Resuelto</span>
 
-    			{% elif s.estado == 'Cerrar' %}
-        		   <span style="color:red; font-weight:bold;">🔴 {{ s.estado }}</span>
+    			{% elif s.estado == 'Cerrado' %}
+        		    <span class="badge badge-cerrado">Cerrado</span>
 
     			{% else %}
-        		   <span style="color:blue; font-weight:bold;">{{ s.estado }}</span>
+        		    <span class="badge">{{ s.estado }}</span>
     			{% endif %}
 		</td>
 

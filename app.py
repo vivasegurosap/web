@@ -207,6 +207,21 @@ def panel():
     """)
     solicitudes = cursor.fetchall()
 
+    # ===== CONTADORES =====
+    cursor.execute("SELECT COUNT(*) FROM solicitudes")
+    total = cursor.fetchone()['count']
+
+    cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Pendiente'")
+    pendientes = cursor.fetchone()['count']
+
+    cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='En proceso'")
+    proceso = cursor.fetchone()['count']
+
+    cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Resuelto'")
+    resueltos = cursor.fetchone()['count']
+
+    cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Cerrado'")
+    cerrados = cursor.fetchone()['count']
     # Empleados para el select
     cursor.execute("""
         SELECT id, nombre_completo
@@ -219,10 +234,15 @@ def panel():
     conn.close()
 
     return render_template(
-        'panel.html',
-        solicitudes=solicitudes,
-        empleados=empleados
-    )
+    'panel.html',
+    solicitudes=solicitudes,
+    empleados=empleados,
+    total=total,
+    pendientes=pendientes,
+    proceso=proceso,
+    resueltos=resueltos,
+    cerrados=cerrados
+)
 
 
 @app.route('/crear_solicitud', methods=['POST'])

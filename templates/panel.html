@@ -86,6 +86,33 @@
         hr {
             margin: 30px 0;
         }
+/* ===== ESTADOS BONITOS ===== */
+	.badge {
+    		padding: 4px 10px;
+    		border-radius: 15px;
+    		font-size: 12px;
+    		font-weight: bold;
+	}
+
+	.badge-pendiente { 
+    		background-color: #e0e0e0; 
+    		color: #333;
+	}
+
+	.badge-proceso { 
+    		background-color: #fff3cd; 
+    		color: #856404;
+	}
+
+	.badge-resuelto { 
+    		background-color: #d4edda; 
+    		color: #155724;
+	}
+
+	.badge-cerrado { 
+    		background-color: #f8d7da; 
+    		color: #721c24;
+	}
     </style>
 </head>
 <body>
@@ -105,6 +132,9 @@
         <div style="text-align:right; margin-bottom:15px;">
             <a href="/crear_usuario">
                 <button type="button">➕ Crear Usuario</button>
+		<br><br>
+		<a href="{{ url_for('form') }}">
+    		    <button type="button">⬅ Volver al Formulario</button>
             </a>
         </div>
     {% endif %}
@@ -160,7 +190,15 @@
     </form>
 
     <hr>
+    <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
 
+        <div class="badge badge-pendiente">Total: {{ total }}</div>
+    	<div class="badge badge-pendiente">Pendientes: {{ pendientes }}</div>
+    	<div class="badge badge-proceso">En proceso: {{ proceso }}</div>
+    	<div class="badge badge-resuelto">Resueltos: {{ resueltos }}</div>
+    	<div class="badge badge-cerrado">Cerrados: {{ cerrados }}</div>
+
+    </div>
     <h2> Casos Registrados</h2>
     {% if current_user.rol == "interno" %}
     <form method="GET" style="margin-bottom:20px;">
@@ -179,7 +217,7 @@
        <select name="usuario">
            <option value="">Todos</option>
            {% for e in empleados %}
-              <option value="{{ e[0] }}">{{ e[1] }}</option>
+              <option value="{{ e.id }}">{{ e.nombre_completo }}</option>
            {% endfor %}
        </select>
 
@@ -207,18 +245,22 @@
             <td>{{ s.tipo_solicitud }}</td>
 	    <td>{{ s.asignado_nombre }}</td>
             <td>
-    		<b>{{ s.estado }}</b>
+    		{% if s.estado == 'Pendiente' %}
+        	    <span class="badge badge-pendiente">Pendiente</span>
 
-    		{% if current_user.rol == "interno" %}
-        	<div style="margin-top:8px; font-size:12px;">
-            	<a href="{{ url_for('estado', id=s.id, estado='Pendiente') }}">⚪ Pendiente</a><br>
-            	<a href="{{ url_for('estado', id=s.id, estado='En proceso') }}">🟡 En proceso</a><br>
-            	<a href="{{ url_for('estado', id=s.id, estado='Resuelto') }}">🟢 Resuelto</a><br>
-            	<a href="{{ url_for('estado', id=s.id, estado='Cerrado') }}">🔴 Cerrar</a>
-            </div>
-    	  {% endif %}
-	</td>
+    		{% elif s.estado == 'En proceso' %}
+        	    <span class="badge badge-proceso">En proceso</span>
 
+    		{% elif s.estado == 'Resuelto' %}
+        	    <span class="badge badge-resuelto">Resuelto</span>
+
+    		{% elif s.estado == 'Cerrado' %}
+        	    <span class="badge badge-cerrado">Cerrado</span>
+
+    		{% else %}
+        	    <span class="badge">{{ s.estado }}</span>
+    		{% endif %}
+	
         </tr>
         {% endfor %}
     </table>
