@@ -138,7 +138,7 @@
 </div>
 <div class="container">
 
-    {% if current_user.is_authenticated and current_user.rol == "interno" %}
+    {% if current_user.is_authenticated and current_user.rol in ["interno", "admin"] %}
         <div style="text-align:right; margin-bottom:15px;">
             <a href="/crear_usuario">
                 <button type="button">➕ Crear Usuario</button>
@@ -207,7 +207,7 @@
 
     </div>
     <h2> Casos Registrados</h2>
-    {% if current_user.is_authenticated and current_user.rol == "interno" %}
+    {% if current_user.is_authenticated and current_user.rol in ["interno", "admin"] %}
     <form method="GET" style="margin-bottom:20px;">
 
        <label>Estado:</label>
@@ -271,7 +271,7 @@
     		{% endif %}
 
     		<!-- OPCIONES SOLO PARA INTERNOS -->
-    		{% if current_user.is_authenticated and current_user.rol == "interno" %}
+    		{% if current_user.is_authenticated and current_user.rol in ["interno", "admin"] %}
         	    <div style="margin-top:6px; font-size:12px;">
             		<a href="{{ url_for('estado', id=s.id, estado='Pendiente') }}">⚪ Pendiente</a><br>
             		<a href="{{ url_for('estado', id=s.id, estado='En proceso') }}">🟡 En proceso</a><br>
