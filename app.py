@@ -46,6 +46,14 @@ login_manager.init_app(app)
 
 def get_db():
     database_url = os.environ.get("DATABASE_URL")
+
+    if not database_url:
+        raise Exception("DATABASE_URL no está configurado")
+
+    # 🔥 Render a veces usa postgres:// y psycopg2 exige postgresql://
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+
     return psycopg2.connect(database_url)
 
 class User(UserMixin):
