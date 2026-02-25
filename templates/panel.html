@@ -118,15 +118,20 @@
 </head>
 <body>
 
-<div class="header" style="display:flex; justify-content:space-between; align-items:center;">
-    <div>
-        <img src="{{ url_for('static', filename='Logo.png') }}" alt="Logo" style="height:70px;">
-        <h1>Portal de Solicitudes VivaAP</h1>
-    </div>
-    <div style="text-align:right;">
-        <strong>{{ current_user.nombre_completo }}</strong><br>
-        <small>{{ current_user.rol|capitalize }}</small>
-    </div>
+<div style="background-color:#146c43; padding:30px 20px; text-align:center; color:white;">
+
+    <img src="{{ url_for('static', filename='Logo.png') }}" 
+         alt="Logo VivaAP"
+         style="height:100px; margin-bottom:15px;">
+
+    <h1 style="margin:0; font-weight:500;">
+        Portal de Solicitudes VivaAP
+    </h1>
+
+    <p style="margin-top:10px; font-size:15px; opacity:0.9;">
+        Bienvenido, {{ current_user.nombre_completo }}
+    </p>
+
 </div>
 <div style="text-align:right; margin-top:10px;">
     <a href="{{ url_for('logout') }}">
