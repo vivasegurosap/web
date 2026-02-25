@@ -49,21 +49,26 @@ def get_db():
     return psycopg2.connect(database_url)
 
 class User(UserMixin):
-    def __init__(self, id, username, rol):
+    def __init__(self, id, username, rol, nombre_completo):
         self.id = str(id)
         self.username = username
-        self.rol = rol   # 🔥 ESTE CAMPO ES LA CLAVE
+        self.rol = rol
+        self.nombre_completo = nombre_completo
 
 @login_manager.user_loader
 def load_user(user_id):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id, username, rol FROM usuarios WHERE id=%s", (user_id,))
+    cur.execute("""
+        SELECT id, username, rol, nombre_completo 
+        FROM usuarios 
+        WHERE id=%s
+    """, (user_id,))
     row = cur.fetchone()
     conn.close()
 
     if row:
-        return User(row[0], row[1], row[2])
+        return User(row[0], row[1], row[2], row[3])
     return None
 
 
@@ -198,51 +203,84 @@ def panel():
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    # Solicitudes
-    cursor.execute("""
-        SELECT s.*, u.nombre_completo AS asignado_nombre
-        FROM solicitudes s
-        LEFT JOIN usuarios u ON s.asignado_a = u.id
-        ORDER BY s.id DESC
-    """)
-    solicitudes = cursor.fetchall()
+    # 👑 SI ES INTERNO (ADMIN) VE TODO
+    if current_user.rol == "interno":
 
-    # ===== CONTADORES =====
-    cursor.execute("SELECT COUNT(*) FROM solicitudes")
-    total = cursor.fetchone()['count']
+        cursor.execute("""
+            SELECT s.*, u.nombre_completo AS asignado_nombre
+            FROM solicitudes s
+            LEFT JOIN usuarios u ON s.asignado_a = u.id
+            ORDER BY s.id DESC
+        """)
+        solicitudes = cursor.fetchall()
 
-    cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Pendiente'")
-    pendientes = cursor.fetchone()['count']
+        # ===== CONTADORES GLOBALES =====
+        cursor.execute("SELECT COUNT(*) FROM solicitudes")
+        total = cursor.fetchone()['count']
 
-    cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='En proceso'")
-    proceso = cursor.fetchone()['count']
+        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Pendiente'")
+        pendientes = cursor.fetchone()['count']
 
-    cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Resuelto'")
-    resueltos = cursor.fetchone()['count']
+        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='En proceso'")
+        proceso = cursor.fetchone()['count']
 
-    cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Cerrado'")
-    cerrados = cursor.fetchone()['count']
-    # Empleados para el select
-    cursor.execute("""
-        SELECT id, nombre_completo
-        FROM usuarios
-        WHERE rol='interno' AND activo=TRUE
-        ORDER BY nombre_completo
-    """)
-    empleados = cursor.fetchall()
+        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Resuelto'")
+        resueltos = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Cerrado'")
+        cerrados = cursor.fetchone()['count']
+
+        # Empleados solo para admin
+        cursor.execute("""
+            SELECT id, nombre_completo
+            FROM usuarios
+            WHERE rol='interno' AND activo=TRUE
+            ORDER BY nombre_completo
+        """)
+        empleados = cursor.fetchall()
+
+    # 👤 SI ES EXTERNO SOLO VE LOS SUYOS
+    else:
+
+        cursor.execute("""
+            SELECT s.*, u.nombre_completo AS asignado_nombre
+            FROM solicitudes s
+            LEFT JOIN usuarios u ON s.asignado_a = u.id
+            WHERE s.asignado_a = %s
+            ORDER BY s.id DESC
+        """, (current_user.id,))
+        solicitudes = cursor.fetchall()
+
+        # ===== CONTADORES SOLO DE SUS CASOS =====
+        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE asignado_a = %s", (current_user.id,))
+        total = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Pendiente' AND asignado_a = %s", (current_user.id,))
+        pendientes = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='En proceso' AND asignado_a = %s", (current_user.id,))
+        proceso = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Resuelto' AND asignado_a = %s", (current_user.id,))
+        resueltos = cursor.fetchone()['count']
+
+        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Cerrado' AND asignado_a = %s", (current_user.id,))
+        cerrados = cursor.fetchone()['count']
+
+        empleados = []  # externo no necesita ver empleados
 
     conn.close()
 
     return render_template(
-    'panel.html',
-    solicitudes=solicitudes,
-    empleados=empleados,
-    total=total,
-    pendientes=pendientes,
-    proceso=proceso,
-    resueltos=resueltos,
-    cerrados=cerrados
-)
+        'panel.html',
+        solicitudes=solicitudes,
+        empleados=empleados,
+        total=total,
+        pendientes=pendientes,
+        proceso=proceso,
+        resueltos=resueltos,
+        cerrados=cerrados
+    )
 
 
 @app.route('/crear_solicitud', methods=['POST'])
