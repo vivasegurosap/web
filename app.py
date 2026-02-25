@@ -236,6 +236,16 @@ def form():
 def panel():
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+# 🔹 TRAER SIEMPRE LOS USUARIOS INTERNOS (para el select "Asignar a")
+    cursor.execute("""
+        SELECT id, nombre_completo
+        FROM usuarios
+        WHERE rol = 'interno'
+        AND activo = TRUE
+        ORDER BY nombre_completo
+    """)
+    empleados = cursor.fetchall()
 
     # 🔴 ADMIN VE TODO
     if current_user.rol == "admin":
@@ -319,7 +329,8 @@ def panel():
         pendientes=pendientes,
         proceso=proceso,
         resueltos=resueltos,
-        cerrados=cerrados
+        cerrados=cerrados,
+        empleados=empleados
     )
 
 
