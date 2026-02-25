@@ -75,19 +75,28 @@ def load_user(user_id):
 def generar_radicado():
     return f"VIVAP-{datetime.now().year}-{random.randint(10000,99999)}"
 
-# LOGIN
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
         u = request.form['username']
         p = request.form['password']
+
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT id, password_hash, rol FROM usuarios WHERE username=%s", (u,))
+
+        cur.execute("""
+            SELECT id, username, rol, nombre_completo, password_hash
+            FROM usuarios
+            WHERE username=%s AND activo=TRUE
+        """, (u,))
+
         user = cur.fetchone()
-        if user and check_password_hash(user[1], p):
-            login_user(User(user[0], u, user[2]))
+        conn.close()
+
+        if user and check_password_hash(user[4], p):
+            login_user(User(user[0], user[1], user[2], user[3]))
             return redirect('/panel')
+
     return render_template('login.html')
 
 @app.route('/crear_usuario', methods=['GET','POST'])
