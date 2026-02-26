@@ -2,122 +2,29 @@
 <html>
 <head>
     <title>Solicitud de Novedades</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f8;
-            margin: 0;
-            padding: 0;
-        }
-
-        .header {
-            background-color: #1F7A83;
-            text-align: center;
-            padding: 25px 10px;
-            color: white;
-        }
-
-        .header img {
-            width: 260px;
-	    max-width: 90%;
-            margin-bottom: 10px;
-        }
-
-        .container {
-    	    max-width: 900px;
-    	    margin: 40px auto;
-    	    background: white;
-    	    padding: 30px;
-    	    border-radius: 8px;
-    	    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-	}
-
-        h2 {
-            color: #1F7A83;
-        }
-
-        label {
-            font-weight: bold;
-        }
-
-        input, select, textarea {
-            width: 100%;
-            padding: 10px;
-            margin-top: 5px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-        }
-
-        button {
-            background-color: #1F7A83;
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #17646c;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        th {
-            background-color: #1F7A83;
-            color: white;
-            padding: 10px;
-        }
-
-        td {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        tr:hover {
-            background-color: #f1f1f1;
-        }
-
-        hr {
-            margin: 30px 0;
-        }
-/* ===== ESTADOS BONITOS ===== */
-	.badge {
-    		padding: 4px 10px;
-    		border-radius: 15px;
-    		font-size: 12px;
-    		font-weight: bold;
-	}
-
-	.badge-pendiente { 
-    		background-color: #e0e0e0; 
-    		color: #333;
-	}
-
-	.badge-proceso { 
-    		background-color: #fff3cd; 
-    		color: #856404;
-	}
-
-	.badge-resuelto { 
-    		background-color: #d4edda; 
-    		color: #155724;
-	}
-
-	.badge-cerrado { 
-    		background-color: #f8d7da; 
-    		color: #721c24;
-	}
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
-<body>
 
+<body>
+{% with messages = get_flashed_messages() %}
+  {% if "modal_bienvenida" in messages %}
+  
+  <div id="alertModal" class="modal">
+      <div class="modal-content">
+          <span class="close-btn" onclick="cerrarModal()">&times;</span>
+          <h2>Información Importante</h2>
+          <p>
+              Recuerde que si su solicitud es urgente,
+              puede hacer seguimiento por la línea directa
+              al móvil <strong>300 658 1608</strong>.
+          </p>
+          <button onclick="cerrarModal()">Entendido</button>
+      </div>
+  </div>
+
+  {% endif %}
+{% endwith %}
 <div class="header">
     <img src="{{ url_for('static', filename='Logo.png') }}" alt="Logo VivaAP">
 
@@ -130,11 +37,11 @@
     	    Bienvenido, {{ current_user.nombre_completo }}
 	{% endif %}
     </p>
-</div>
-<div style="text-align:right; margin-top:10px;">
-    <a href="{{ url_for('logout') }}">
-        <button type="button">Cerrar sesión</button>
-    </a>
+    <div style="margin-top:15px;">
+    	<a href="{{ url_for('logout') }}">
+            <button type="button">Cerrar sesión</button>
+    	</a>
+    </div>
 </div>
 <div class="container">
 
@@ -197,13 +104,31 @@
     </form>
 
     <hr>
-    <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+    <div class="stats">
 
-        <div class="badge badge-pendiente">Total: {{ total }}</div>
-    	<div class="badge badge-pendiente">Pendientes: {{ pendientes }}</div>
-    	<div class="badge badge-proceso">En proceso: {{ proceso }}</div>
-    	<div class="badge badge-resuelto">Resueltos: {{ resueltos }}</div>
-    	<div class="badge badge-cerrado">Cerrados: {{ cerrados }}</div>
+        <div class="stat-card">
+    	   <h3>{{ total }}</h3>
+    	   <p>Total</p>
+	</div>
+    	<div class="stat-card">
+    	   <h3>{{ pendientes }}</h3>
+    	   <p>Pendientes</p>
+	</div>
+
+	<div class="stat-card">
+    	   <h3>{{ proceso }}</h3>
+    	   <p>En proceso</p>
+	</div>
+
+	<div class="stat-card">
+    	   <h3>{{ resueltos }}</h3>
+    	   <p>Resueltos</p>
+	</div>
+
+ 	<div class="stat-card">
+    	   <h3>{{ cerrados }}</h3>
+    	   <p>Cerrados</p>
+	</div>
 
     </div>
     <h2> Casos Registrados</h2>
@@ -285,6 +210,11 @@
     </table>
 
 </div>
+<script>
+function cerrarModal() {
+    document.getElementById("alertModal").style.display = "none";
+}
+</script>
 
 </body>
 </html>

@@ -104,6 +104,7 @@ def login():
 
         if user and check_password_hash(user[4], p):
             login_user(User(user[0], user[1], user[2], user[3]))
+            flash("modal_bienvenida")
             return redirect('/panel')
 
     return render_template('login.html')
@@ -112,7 +113,7 @@ def login():
 @login_required
 def crear_usuario():
     # Solo internos pueden crear usuarios
-    if current_user.rol != "interno":
+    if current_user.rol not in ["interno", "admin"]:
         abort(403)
 
     if request.method == 'POST':
