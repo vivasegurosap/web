@@ -8,6 +8,8 @@
 /* BODY */
 body {
     font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 15px;   /* antes probablemente 14px */
+    line-height: 1.6;
     background: #f4f6f8;
     color: #333;
 }
@@ -41,7 +43,7 @@ body {
 
 /* TITLES */
 h2 {
-    margin-bottom: 20px;
+    margin-bottom: 22px;
     color: #1F7A83;
 }
 
@@ -78,7 +80,7 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 25px;
-    font-size: 14px;
+    font-size: 15px;
 }
 
 th {
