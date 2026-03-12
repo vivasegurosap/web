@@ -13,6 +13,15 @@ body {
     background: #f4f6f8;
     color: #333;
 }
+.flash-success {
+    background: #d4edda;
+    color: #155724;
+    padding: 14px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-weight: bold;
+    text-align: center;
+}
 
 /* HEADER */
 .header {

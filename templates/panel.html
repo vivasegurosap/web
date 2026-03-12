@@ -7,24 +7,23 @@
 </head>
 
 <body>
-{% with messages = get_flashed_messages() %}
-  {% if "modal_bienvenida" in messages %}
-  
-  <div id="alertModal" class="modal">
-      <div class="modal-content">
-          <span class="close-btn" onclick="cerrarModal()">&times;</span>
-          <h2>Información Importante</h2>
-          <p>
-              Recuerde que si su solicitud es urgente,
-              puede hacer seguimiento por la línea directa
-              al móvil <strong>300 658 1608</strong>.
-          </p>
-          <button onclick="cerrarModal()">Entendido</button>
-      </div>
-  </div>
 
-  {% endif %}
-{% endwith %}
+{% set messages = get_flashed_messages() %}
+
+{% if "modal_bienvenida" in messages %}
+<div id="alertModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="cerrarModal()">&times;</span>
+        <h2>Información Importante</h2>
+        <p>
+            Recuerde que si su solicitud es urgente,
+            puede hacer seguimiento por la línea directa
+            al móvil <strong>300 658 1608</strong>.
+        </p>
+        <button onclick="cerrarModal()">Entendido</button>
+    </div>
+</div>
+{% endif %}
 <div class="header">
     <img src="{{ url_for('static', filename='Logo.png') }}" alt="Logo VivaAP">
 
@@ -45,6 +44,15 @@
 </div>
 <div class="container">
 
+{% if messages %}
+  {% for message in messages %}
+    {% if message != "modal_bienvenida" %}
+      <div class="flash-success">
+        {{ message }}
+      </div>
+    {% endif %}
+  {% endfor %}
+{% endif %}
     {% if current_user.is_authenticated and current_user.rol in ["interno", "admin"] %}
         <div style="text-align:right; margin-bottom:15px;">
             <a href="/crear_usuario">
