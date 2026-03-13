@@ -358,9 +358,7 @@ def crear_solicitud():
     # Crear radicado
     radicado = f"RAD-{nuevo_id:05d}"
     cursor.execute("UPDATE solicitudes SET radicado = %s WHERE id = %s", (radicado, nuevo_id))
-    conn.commit()
-    conn.close()
-
+    
     # --- Crear mensaje
     
     msg = MIMEMultipart()
