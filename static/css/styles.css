@@ -84,28 +84,22 @@ button:hover {
     background: #17646c;
 }
 
-/* TABLE */
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 25px;
-    font-size: 15px;
+    table-layout: fixed;   /* 🔹 mantiene columnas fijas */
 }
 
-th {
-    background: #1F7A83;
-    color: white;
-    padding: 12px;
+th, td {
+    padding: 10px;
     text-align: left;
+    vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 td {
-    padding: 12px;
-    border-bottom: 1px solid #eee;
-}
-
-tr:hover {
-    background: #f9fbfc;
+    white-space: normal;   /* permite saltos de línea */
 }
 
 /* DASHBOARD */
@@ -175,4 +169,23 @@ tr:hover {
 @keyframes aparecer {
     from { transform: scale(0.8); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
+}
+
+/* RADICADO SIEMPRE EN UNA LINEA */
+td:first-child {
+    white-space: nowrap;
+    font-weight: 600;
+}
+/* COLUMNA ESTADO */
+td:last-child {
+    white-space: nowrap;
+}
+/* CONTROL DE TEXTO LARGO */
+p {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+.descripcion {
+    word-break: break-word;
+    white-space: pre-line;
 }
