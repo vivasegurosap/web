@@ -15,7 +15,6 @@ from email.mime.base import MIMEBase
 from email import encoders
 from functools import wraps
 from flask import abort
-from flask_login import current_user
 from flask import send_file
 from io import BytesIO
 
@@ -41,6 +40,7 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'tecnologiasvisuales940@gmail.com'
 app.config['MAIL_PASSWORD'] = 'koavxwdwsdornvsv'
 app.config['MAIL_DEFAULT_SENDER'] = 'tecnologiasvisuales940@gmail.com'
+mail = Mail(app)
 
 # LOGIN
 login_manager = LoginManager()
