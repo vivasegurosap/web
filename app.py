@@ -316,6 +316,26 @@ def descargar_archivo(id):
         mimetype=archivo['tipo_archivo'],
         as_attachment=True
     )
+#ruta para eliminar los radicado.
+@app.route('/eliminar_solicitud/<int:id>')
+def eliminar_solicitud(id):
+
+    if session.get("rol") != "admin":
+        return "No autorizado", 403
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM solicitudes WHERE id = %s", (id,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    flash("Solicitud eliminada correctamente", "success")
+
+    return redirect("/panel")
+
 
 @app.route('/crear_solicitud', methods=['POST'])
 @login_required

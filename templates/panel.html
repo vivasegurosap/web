@@ -175,6 +175,9 @@
             <th>Tipo</th>
 	    <th>Asignado a</th>
             <th>Estado</th>
+	    {% if current_user.rol == "admin" %}
+       	    <th>Eliminar</th>
+            {% endif %}
         </tr>
 
         {% for s in solicitudes %}
@@ -218,6 +221,17 @@
     		{% endif %}
 
 	    </td>
+	    {% if current_user.rol == "admin" %}
+    	    <td>
+            	<a href="{{ url_for('eliminar_solicitud', id=s.id) }}"
+           	    onclick="return confirm('¿Seguro que desea eliminar este radicado?')">
+            		<button style="background:#c0392b;">Eliminar</button>
+        	</a>
+    	    </td>
+    	    {% endif %}
+
+	</tr>
+
         {% endfor %}
     </table>
 
