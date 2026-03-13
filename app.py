@@ -17,6 +17,7 @@ from functools import wraps
 from flask import abort
 from flask_login import current_user
 from flask import send_file
+from io import BytesIO
 
 def solo_internos(f):
     @wraps(f)
@@ -386,19 +387,17 @@ Descripción:
 
     # Adjuntar múltiples archivos
     for archivo in request.files.getlist('archivos'):
-
         if archivo and archivo.filename:
-
             nombre = secure_filename(archivo.filename)
             tipo = archivo.content_type
             contenido = archivo.read()
-
             cursor.execute("""
                 INSERT INTO archivos (solicitud_id, nombre_archivo, tipo_archivo, archivo)
                 VALUES (%s,%s,%s,%s)
             """, (nuevo_id, nombre, tipo, contenido))
 
     conn.commit()
+    conn.close()
 
     # Enviar correo vía SMTP
     with smtplib.SMTP('smtp.gmail.com', 587) as server:
