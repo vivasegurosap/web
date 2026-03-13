@@ -179,7 +179,11 @@
 
         {% for s in solicitudes %}
         <tr>
-            <td>{{ s.radicado }}</td>
+            <td>
+    		<a href="{{ url_for('ver_solicitud', id=s.id) }}">
+        	    {{ s.radicado }}
+    		</a>
+	    </td>
             <td>{{ s.razon_social }}</td>
             <td>{{ s.nombre_remitente }}</td>
             <td>{{ s.tipo_solicitud }}</td>

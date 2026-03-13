@@ -16,6 +16,7 @@ from email import encoders
 from functools import wraps
 from flask import abort
 from flask_login import current_user
+from flask import send_file
 
 def solo_internos(f):
     @wraps(f)
@@ -254,7 +255,59 @@ def panel():
         cerrados=cerrados,
         empleados=empleados
     )
+# ruta para ver el caso
+@app.route('/solicitud/<int:id>')
+@login_required
+def ver_solicitud(id):
 
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cursor.execute("""
+        SELECT s.*, u.nombre_completo AS asignado_nombre
+        FROM solicitudes s
+        LEFT JOIN usuarios u ON s.asignado_a = u.id
+        WHERE s.id = %s
+    """, (id,))
+
+    solicitud = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT *
+        FROM archivos
+        WHERE solicitud_id = %s
+    """, (id,))
+
+    archivos = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "detalle_solicitud.html",
+        solicitud=solicitud,
+        archivos=archivos
+    )
+
+@app.route('/descargar/<int:id>')
+@login_required
+def descargar_archivo(id):
+
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cursor.execute("""
+        SELECT *
+        FROM archivos
+        WHERE id = %s
+    """, (id,))
+
+    archivo = cursor.fetchone()
+    conn.close()
+
+    if archivo:
+        return send_file(archivo['ruta_archivo'], as_attachment=True)
+
+    abort(404)
 
 @app.route('/crear_solicitud', methods=['POST'])
 @login_required
@@ -324,16 +377,19 @@ Descripción:
 """
     msg.attach(MIMEText(cuerpo, 'plain', 'utf-8'))
 
-
-    # Adjuntar múltiples archivos desde memoria
+    # Adjuntar múltiples archivos
     for archivo in request.files.getlist('archivos'):
+
         if archivo and archivo.filename:
-            archivo.stream.seek(0)  # 🔥 RESETEA EL PUNTERO (CLAVE)
-            part = MIMEBase('application', 'octet-stream')
-            part.set_payload(archivo.read())
-            encoders.encode_base64(part)
-            part.add_header('Content-Disposition', f'attachment; filename={secure_filename(archivo.filename)}')
-            msg.attach(part)
+            nombre = f"{nuevo_id}_{secure_filename(archivo.filename)}"
+            ruta = os.path.join(app.config['UPLOAD_FOLDER'], nombre)
+            archivo.save(ruta)
+            cursor.execute("""
+                INSERT INTO archivos (solicitud_id, nombre_archivo, ruta_archivo)
+                VALUES (%s,%s,%s)
+            """, (nuevo_id, nombre, ruta))
+
+    conn.commit()
 
     # Enviar correo vía SMTP
     with smtplib.SMTP('smtp.gmail.com', 587) as server:

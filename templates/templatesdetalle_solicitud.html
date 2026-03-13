@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Detalle del Caso</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Radicado {{ solicitud.radicado }}</h2>
+
+<p><strong>Empresa:</strong> {{ solicitud.razon_social }}</p>
+<p><strong>Solicitante:</strong> {{ solicitud.nombre_remitente }}</p>
+<p><strong>Póliza:</strong> {{ solicitud.poliza }}</p>
+<p><strong>Tipo:</strong> {{ solicitud.tipo_solicitud }}</p>
+<p><strong>Asignado a:</strong> {{ solicitud.asignado_nombre }}</p>
+
+<hr>
+
+<h3>Descripción</h3>
+<p>{{ solicitud.descripcion }}</p>
+
+<hr>
+
+<h3>Archivos adjuntos</h3>
+
+{% if archivos %}
+    <ul>
+    {% for a in archivos %}
+        <li>
+            <a href="{{ url_for('descargar_archivo', id=a.id) }}">
+                {{ a.nombre_archivo }}
+            </a>
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+<p>No hay archivos adjuntos</p>
+{% endif %}
+
+<br>
+
+<a href="/panel">
+<button>⬅ Volver al panel</button>
+</a>
+
+</div>
+
+</body>
+</html>
