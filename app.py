@@ -26,13 +26,13 @@ def solo_internos(f):
         return f(*args, **kwargs)
     return decorated_function
 
-BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_PATH, "uploads")
+#BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+#UPLOAD_FOLDER = os.path.join(BASE_PATH, "uploads")
 
 app = Flask(__name__)
 app.secret_key = "vivaap_secret"
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+#app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+#os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # CORREO
 
@@ -296,7 +296,7 @@ def descargar_archivo(id):
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cursor.execute("""
-        SELECT *
+        SELECT nombre_archivo, tipo_archivo, archivo
         FROM archivos
         WHERE id = %s
     """, (id,))
@@ -304,10 +304,17 @@ def descargar_archivo(id):
     archivo = cursor.fetchone()
     conn.close()
 
-    if archivo:
-        return send_file(archivo['ruta_archivo'], as_attachment=True)
+    if not archivo:
+        abort(404)
 
-    abort(404)
+    from io import BytesIO
+
+    return send_file(
+        BytesIO(archivo['archivo']),
+        download_name=archivo['nombre_archivo'],
+        mimetype=archivo['tipo_archivo'],
+        as_attachment=True
+    )
 
 @app.route('/crear_solicitud', methods=['POST'])
 @login_required
@@ -381,13 +388,15 @@ Descripción:
     for archivo in request.files.getlist('archivos'):
 
         if archivo and archivo.filename:
-            nombre = f"{nuevo_id}_{secure_filename(archivo.filename)}"
-            ruta = os.path.join(app.config['UPLOAD_FOLDER'], nombre)
-            archivo.save(ruta)
+
+            nombre = secure_filename(archivo.filename)
+            tipo = archivo.content_type
+            contenido = archivo.read()
+
             cursor.execute("""
-                INSERT INTO archivos (solicitud_id, nombre_archivo, ruta_archivo)
-                VALUES (%s,%s,%s)
-            """, (nuevo_id, nombre, ruta))
+                INSERT INTO archivos (solicitud_id, nombre_archivo, tipo_archivo, archivo)
+                VALUES (%s,%s,%s,%s)
+            """, (nuevo_id, nombre, tipo, contenido))
 
     conn.commit()
 
