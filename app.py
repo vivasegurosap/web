@@ -17,6 +17,7 @@ from functools import wraps
 from flask import abort
 from flask import send_file
 from io import BytesIO
+from flask_login import login_required, current_user
 
 def solo_internos(f):
     @wraps(f)
@@ -318,12 +319,13 @@ def descargar_archivo(id):
     )
 #ruta para eliminar los radicado.
 @app.route('/eliminar_solicitud/<int:id>')
+@login_required
 def eliminar_solicitud(id):
 
-    if session.get("rol") != "admin":
+    if current_user.rol != "admin":
         return "No autorizado", 403
 
-    conn = get_db_connection()
+    conn = get_db()
     cursor = conn.cursor()
 
     cursor.execute("DELETE FROM solicitudes WHERE id = %s", (id,))
@@ -332,7 +334,7 @@ def eliminar_solicitud(id):
     cursor.close()
     conn.close()
 
-    flash("Solicitud eliminada correctamente", "success")
+    flash("Solicitud eliminada correctamente")
 
     return redirect("/panel")
 
