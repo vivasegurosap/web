@@ -3,29 +3,68 @@
 <head>
     <title>Login - VivaAP</title>
 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <style>
         body {
             margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background-color: #1F7A83; /* Verde institucional */
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 🔹 LADO IZQUIERDO (INFORMACIÓN + FONDO) */
+        .left {
+            width: 65%;
+            height: 100vh;
+            background: linear-gradient(
+                        rgba(0,0,0,0.6),
+                        rgba(0,0,0,0.6)
+                    ),
+                    url("{{ url_for('static', filename='fondo.jpg') }}");
+            background-size: cover;
+            background-position: center;
+            color: white;
+            overflow-y: auto;
+            padding: 60px;
+        }
+
+        .left h1 {
+            font-size: 38px;
+            margin-bottom: 20px;
+        }
+
+        .left p {
+            font-size: 16px;
+            line-height: 1.6;
+            max-width: 600px;
+        }
+
+        .info-section {
+            margin-top: 40px;
+        }
+
+        /* 🔹 LADO DERECHO (LOGIN) */
+        .right {
+            width: 35%;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            background: #f4f6f8;
         }
 
         .login-box {
             background: white;
             padding: 40px;
             border-radius: 12px;
-            width: 360px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            width: 320px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
             text-align: center;
         }
 
         .login-box img {
-            width: 240px;
+            width: 200px;
             margin-bottom: 20px;
         }
 
@@ -63,23 +102,76 @@
         button:hover {
             background-color: #17646c;
         }
+
+        /* 📱 RESPONSIVE */
+        @media (max-width: 900px) {
+            body {
+                flex-direction: column;
+                overflow: auto;
+            }
+
+            .left {
+                width: 100%;
+                height: auto;
+            }
+
+            .right {
+                width: 100%;
+                padding: 30px 0;
+            }
+        }
     </style>
 </head>
 
 <body>
 
-<div class="login-box">
+<!-- 🔹 LADO IZQUIERDO -->
+<div class="left">
 
-    <img src="{{ url_for('static', filename='Logo.png') }}" alt="Logo">
+    <h1>Bienvenido a VivaAP</h1>
 
-    <h2>Bienvenido equipo VivaAP</h2>
+    <p>
+        Plataforma de gestión de solicitudes diseñada para optimizar tus procesos,
+        mejorar tiempos de respuesta y brindarte trazabilidad completa a cada caso.
+    </p>
 
-    <form method="POST">
-        <input type="text" name="username" placeholder="Usuario" required>
-        <input type="password" name="password" placeholder="Contraseña" required>
+    <div class="info-section">
+        <h2>¿Qué puedes hacer aquí?</h2>
+        <p>
+            ✔ Radicar solicitudes en tiempo real<br>
+            ✔ Hacer seguimiento a cada caso<br>
+            ✔ Adjuntar documentos<br>
+            ✔ Ver estados actualizados<br>
+        </p>
+    </div>
 
-        <button type="submit">Ingresar</button>
-    </form>
+    <div class="info-section">
+        <h2>Canales de atención</h2>
+        <p>
+            📞 Línea directa: 300 658 1608<br>
+            📧 Correo: soporte@vivaap.com<br>
+        </p>
+    </div>
+
+</div>
+
+<!-- 🔹 LADO DERECHO -->
+<div class="right">
+
+    <div class="login-box">
+
+        <img src="{{ url_for('static', filename='Logo.png') }}" alt="Logo">
+
+        <h2>Ingreso al sistema</h2>
+
+        <form method="POST">
+            <input type="text" name="username" placeholder="Usuario" required>
+            <input type="password" name="password" placeholder="Contraseña" required>
+
+            <button type="submit">Ingresar</button>
+        </form>
+
+    </div>
 
 </div>
 
