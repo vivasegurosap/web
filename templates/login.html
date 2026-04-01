@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Login - VivaAP</title>
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <style>
@@ -14,7 +13,7 @@
             overflow: hidden;
         }
 
-        /* 🔹 LADO IZQUIERDO (INFORMACIÓN + FONDO) */
+        /* 🔹 LADO IZQUIERDO */
         .left {
             width: 65%;
             height: 100vh;
@@ -28,30 +27,37 @@
             color: white;
             overflow-y: auto;
             padding: 60px;
+
+            animation: fadeIn 1.2s ease;
         }
 
         .left h1 {
             font-size: 38px;
             margin-bottom: 20px;
+            animation: slideUp 1s ease;
         }
 
         .left p {
             font-size: 16px;
             line-height: 1.6;
             max-width: 600px;
+            animation: fadeIn 2s ease;
         }
 
         .info-section {
             margin-top: 40px;
+            animation: slideUp 1.2s ease;
         }
 
-        /* 🔹 LADO DERECHO (LOGIN) */
+        /* 🔹 LADO DERECHO */
         .right {
             width: 35%;
             display: flex;
             justify-content: center;
             align-items: center;
             background: #f4f6f8;
+
+            animation: fadeIn 1.5s ease;
         }
 
         .login-box {
@@ -61,6 +67,8 @@
             width: 320px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
             text-align: center;
+
+            animation: slideUp 0.8s ease;
         }
 
         .login-box img {
@@ -80,12 +88,33 @@
             border-radius: 6px;
             border: 1px solid #ccc;
             font-size: 14px;
+            transition: all 0.3s ease;
         }
 
         input:focus {
             outline: none;
             border-color: #1F7A83;
-            box-shadow: 0 0 5px rgba(31,122,131,0.4);
+            box-shadow: 0 0 8px rgba(31,122,131,0.4);
+            transform: scale(1.02);
+        }
+
+        /* 👁️ CONTENEDOR PASSWORD */
+        .password-container {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #777;
+            transition: 0.2s;
+        }
+
+        .toggle-password:hover {
+            color: #1F7A83;
         }
 
         button {
@@ -97,10 +126,30 @@
             border-radius: 6px;
             font-size: 15px;
             cursor: pointer;
+            transition: 0.3s;
         }
 
         button:hover {
             background-color: #17646c;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        /* ✨ ANIMACIONES */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
 
         /* 📱 RESPONSIVE */
@@ -125,48 +174,52 @@
 
 <body>
 
-<!-- 🔹 LADO IZQUIERDO -->
+<!-- IZQUIERDA -->
 <div class="left">
 
     <h1>Bienvenido a VivaAP</h1>
 
     <p>
-        Plataforma de gestión de solicitudes diseñada para optimizar tus procesos,
-        mejorar tiempos de respuesta y brindarte trazabilidad completa a cada caso.
+        Plataforma de gestión de solicitudes que optimiza procesos,
+        mejora tiempos de respuesta y brinda trazabilidad completa.
     </p>
 
     <div class="info-section">
-        <h2>¿Qué puedes hacer aquí?</h2>
+        <h2>¿Qué puedes hacer?</h2>
         <p>
-            ✔ Radicar solicitudes en tiempo real<br>
-            ✔ Hacer seguimiento a cada caso<br>
+            ✔ Radicar solicitudes<br>
+            ✔ Seguimiento en tiempo real<br>
             ✔ Adjuntar documentos<br>
-            ✔ Ver estados actualizados<br>
+            ✔ Ver estados actualizados
         </p>
     </div>
 
     <div class="info-section">
-        <h2>Canales de atención</h2>
+        <h2>Contacto</h2>
         <p>
-            📞 Línea directa: 300 658 1608<br>
-            📧 Correo: soporte@vivaap.com<br>
+            📞 300 658 1608<br>
+            📧 soporte@vivaap.com
         </p>
     </div>
 
 </div>
 
-<!-- 🔹 LADO DERECHO -->
+<!-- DERECHA -->
 <div class="right">
 
     <div class="login-box">
 
-        <img src="{{ url_for('static', filename='Logo.png') }}" alt="Logo">
+        <img src="{{ url_for('static', filename='Logo.png') }}">
 
         <h2>Ingreso al sistema</h2>
 
         <form method="POST">
             <input type="text" name="username" placeholder="Usuario" required>
-            <input type="password" name="password" placeholder="Contraseña" required>
+
+            <div class="password-container">
+                <input type="password" id="password" name="password" placeholder="Contraseña" required>
+                <span class="toggle-password" onclick="togglePassword()">👁️</span>
+            </div>
 
             <button type="submit">Ingresar</button>
         </form>
@@ -174,6 +227,13 @@
     </div>
 
 </div>
+
+<script>
+function togglePassword() {
+    const input = document.getElementById("password");
+    input.type = input.type === "password" ? "text" : "password";
+}
+</script>
 
 </body>
 </html>
