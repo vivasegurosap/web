@@ -18,11 +18,7 @@
             width: 65%;
             height: 100vh;
 	    position: relative; 
-            background: linear-gradient(
-                        rgba(0,0,0,0.0),
-                        rgba(0,0,0,0.0)
-                    ),
-                    url("{{ url_for('static', filename='fondo.jpg') }}");
+            background:url("{{ url_for('static', filename='fondo.jpg') }}");
             background-size: cover;
             background-position: center;
             color: white;
