@@ -25,12 +25,32 @@ body {
 
 /* HEADER */
 .header {
-    background: linear-gradient(135deg, #1F7A83, #17646c);
-    padding: 30px;
-    text-align: center;
+    background: url("../banner.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
     color: white;
+    padding: 40px 20px;
+    text-align: center;
+
+    position: relative;
+}
+.header::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    background: rgba(0, 0, 0, 0.3); /* oscurece solo un poco */
 }
 
+.header * {
+    position: relative;
+    z-index: 2;
+}
 .header img {
     width: 220px;
     margin-bottom: 15px;
