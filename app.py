@@ -275,15 +275,15 @@ def panel():
 
         cursor.execute(query, params)
         solicitudes = cursor.fetchall()
+        tiene_siguiente = len(solicitudes) == per_page
 
         cursor.execute("""
             SELECT COUNT(*) FROM solicitudes 
-            WHERE creado_por=%s
+            WHERE creado_por = %s
         """, (current_user.nombre_completo,))
         total = cursor.fetchone()['count']
 
         pendientes = proceso = resueltos = cerrados = 0
-        tiene_siguiente = len(solicitudes) == per_page
 
     conn.close()
 
