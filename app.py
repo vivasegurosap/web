@@ -201,6 +201,7 @@ def panel():
         cursor.execute(query, params)
 
         solicitudes = cursor.fetchall()
+        tiene_siguiente = len(solicitudes) == per_page
 
         cursor.execute("SELECT COUNT(*) FROM solicitudes")
         total = cursor.fetchone()['count']
@@ -237,6 +238,7 @@ def panel():
 
         cursor.execute(query, params)
         solicitudes = cursor.fetchall()
+        tiene_siguiente = len(solicitudes) == per_page
 
         cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE asignado_a=%s", (current_user.id,))
         total = cursor.fetchone()['count']
@@ -276,7 +278,7 @@ def panel():
 
         cursor.execute("""
             SELECT COUNT(*) FROM solicitudes 
-            WHERE nombre_remitente=%s
+            WHERE creado_por=%s
         """, (current_user.nombre_completo,))
         total = cursor.fetchone()['count']
 
