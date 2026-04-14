@@ -280,7 +280,7 @@ def panel():
         cursor.execute("""
             SELECT COUNT(*) FROM solicitudes 
             WHERE creado_por = %s
-        """, (current_user.nombre_completo,))
+        """, (current_user.id,))
         total = cursor.fetchone()['count']
 
         pendientes = proceso = resueltos = cerrados = 0
