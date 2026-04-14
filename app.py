@@ -399,8 +399,8 @@ def crear_solicitud():
     cursor.execute("""
         INSERT INTO solicitudes
         (razon_social, nombre_remitente, correo_contacto,
-        telefono_contacto, poliza, tipo_solicitud, descripcion, asignado_a)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        telefono_contacto, poliza, tipo_solicitud, descripcion, asignado_a, creado_por)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """,
     (
