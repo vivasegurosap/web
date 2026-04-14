@@ -194,7 +194,7 @@ def panel():
 
         if usuario_filtro:
             query += " AND s.asignado_a = %s"
-            params.append(usuario_filtro)
+            params.append(int(usuario_filtro))
 
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
