@@ -21,8 +21,8 @@ from email.mime.base import MIMEBase
 from email import encoders
 from functools import wraps
 from flask import abort
-from flask_login import current_user
 from flask import send_file
+from io import BytesIO
 
 def solo_internos(f):
     @wraps(f)
@@ -32,13 +32,13 @@ def solo_internos(f):
         return f(*args, **kwargs)
     return decorated_function
 
-BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_PATH, "uploads")
+#BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+#UPLOAD_FOLDER = os.path.join(BASE_PATH, "uploads")
 
 app = Flask(__name__)
 app.secret_key = "vivaap_secret"
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+#app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+#os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # CORREO
 
@@ -46,6 +46,7 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'tecnologiasvisuales940@gmail.com'
 app.config['MAIL_PASSWORD'] = 'koavxwdwsdornvsv'
 app.config['MAIL_DEFAULT_SENDER'] = 'tecnologiasvisuales940@gmail.com'
+mail = Mail(app)
 
 # LOGIN
 login_manager = LoginManager()
@@ -302,7 +303,7 @@ def descargar_archivo(id):
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cursor.execute("""
-        SELECT *
+        SELECT nombre_archivo, tipo_archivo, archivo
         FROM archivos
         WHERE id = %s
     """, (id,))
@@ -310,13 +311,38 @@ def descargar_archivo(id):
     archivo = cursor.fetchone()
     conn.close()
 
-    if not archivo or not os.path.exists(archivo['ruta_archivo']):
+    if not archivo:
         abort(404)
 
+    from io import BytesIO
+
     return send_file(
-        archivo['ruta_archivo'],
+        BytesIO(archivo['archivo']),
+        download_name=archivo['nombre_archivo'],
+        mimetype=archivo['tipo_archivo'],
         as_attachment=True
     )
+#ruta para eliminar los radicado.
+@app.route('/eliminar_solicitud/<int:id>')
+@login_required
+def eliminar_solicitud(id):
+
+    if current_user.rol != "admin":
+        return "No autorizado", 403
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM solicitudes WHERE id = %s", (id,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    flash("Solicitud eliminada correctamente")
+
+    return redirect("/panel")
+
 
 @app.route('/crear_solicitud', methods=['POST'])
 @login_required
@@ -359,9 +385,7 @@ def crear_solicitud():
     # Crear radicado
     radicado = f"RAD-{nuevo_id:05d}"
     cursor.execute("UPDATE solicitudes SET radicado = %s WHERE id = %s", (radicado, nuevo_id))
-    conn.commit()
-    conn.close()
-
+    
     # --- Crear mensaje
     
     msg = MIMEMultipart()
@@ -388,17 +412,17 @@ Descripción:
 
     # Adjuntar múltiples archivos
     for archivo in request.files.getlist('archivos'):
-
         if archivo and archivo.filename:
-            nombre = f"{nuevo_id}_{secure_filename(archivo.filename)}"
-            ruta = os.path.join(app.config['UPLOAD_FOLDER'], nombre)
-            archivo.save(ruta)
+            nombre = secure_filename(archivo.filename)
+            tipo = archivo.content_type
+            contenido = archivo.read()
             cursor.execute("""
-                INSERT INTO archivos (solicitud_id, nombre_archivo, ruta_archivo)
-                VALUES (%s,%s,%s)
-            """, (nuevo_id, nombre, ruta))
+                INSERT INTO archivos (solicitud_id, nombre_archivo, tipo_archivo, archivo)
+                VALUES (%s,%s,%s,%s)
+            """, (nuevo_id, nombre, tipo, contenido))
 
     conn.commit()
+    conn.close()
 
     # Enviar correo vía SMTP
     with smtplib.SMTP('smtp.gmail.com', 587) as server:

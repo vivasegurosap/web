@@ -17,7 +17,6 @@ from functools import wraps
 from flask import abort
 from flask import send_file
 from io import BytesIO
-from flask_login import login_required, current_user
 
 def solo_internos(f):
     @wraps(f)
@@ -161,6 +160,8 @@ def home():
 def panel():
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    estado_filtro = request.args.get("estado")
+    usuario_filtro = request.args.get("usuario")
     
 # 🔹 TRAER SIEMPRE LOS USUARIOS INTERNOS (para el select "Asignar a")
     cursor.execute("""
@@ -175,12 +176,26 @@ def panel():
     # 🔴 ADMIN VE TODO
     if current_user.rol == "admin":
 
-        cursor.execute("""
+        query = """
             SELECT s.*, u.nombre_completo AS asignado_nombre
             FROM solicitudes s
             LEFT JOIN usuarios u ON s.asignado_a = u.id
-            ORDER BY s.id DESC
-        """)
+            WHERE 1=1
+        """
+        params = []
+
+        if estado_filtro:
+            query += " AND s.estado = %s"
+            params.append(estado_filtro)
+
+        if usuario_filtro:
+            query += " AND s.asignado_a = %s"
+            params.append(usuario_filtro)
+
+        query += " ORDER BY s.id DESC"
+
+        cursor.execute(query, params)
+
         solicitudes = cursor.fetchall()
 
         cursor.execute("SELECT COUNT(*) FROM solicitudes")
@@ -201,13 +216,21 @@ def panel():
     # 🔵 INTERNO SOLO VE LO ASIGNADO A ÉL
     elif current_user.rol == "interno":
 
-        cursor.execute("""
+        query = """
             SELECT s.*, u.nombre_completo AS asignado_nombre
             FROM solicitudes s
             LEFT JOIN usuarios u ON s.asignado_a = u.id
             WHERE s.asignado_a = %s
-            ORDER BY s.id DESC
-        """, (current_user.id,))
+        """
+        params = [current_user.id]
+
+        if estado_filtro:
+            query += " AND s.estado = %s"
+            params.append(estado_filtro)
+
+        query += " ORDER BY s.id DESC"
+
+        cursor.execute(query, params)
         solicitudes = cursor.fetchall()
 
         cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE asignado_a=%s", (current_user.id,))
@@ -228,13 +251,21 @@ def panel():
     # 🟢 EXTERNO SOLO VE LO QUE ÉL RADICÓ
     else:
 
-        cursor.execute("""
+        query = """
             SELECT s.*, u.nombre_completo AS asignado_nombre
             FROM solicitudes s
             LEFT JOIN usuarios u ON s.asignado_a = u.id
-            WHERE s.nombre_remitente = %s
-            ORDER BY s.id DESC
-        """, (current_user.nombre_completo,))
+            WHERE s.creado_por = %s
+        """
+        params = [current_user.id]
+
+        if estado_filtro:
+            query += " AND s.estado = %s"
+            params.append(estado_filtro)
+
+        query += " ORDER BY s.id DESC"
+
+        cursor.execute(query, params)
         solicitudes = cursor.fetchall()
 
         cursor.execute("""
@@ -370,8 +401,8 @@ def crear_solicitud():
         request.form['poliza'],
         request.form['tipo_solicitud'],
         request.form['descripcion'],
-        asignado_a
-
+        asignado_a,
+        current_user.id
     ))
 
 
