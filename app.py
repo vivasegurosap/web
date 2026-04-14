@@ -1,3 +1,4 @@
+from fastapi import params
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_mail import Mail, Message
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -162,6 +163,9 @@ def panel():
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     estado_filtro = request.args.get("estado")
     usuario_filtro = request.args.get("usuario")
+    page = request.args.get("page", 1, type=int)
+    per_page = 7
+    offset = (page - 1) * per_page
     
 # 🔹 TRAER SIEMPRE LOS USUARIOS INTERNOS (para el select "Asignar a")
     cursor.execute("""
@@ -192,7 +196,8 @@ def panel():
             query += " AND s.asignado_a = %s"
             params.append(usuario_filtro)
 
-        query += " ORDER BY s.id DESC"
+        query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
 
         cursor.execute(query, params)
 
@@ -228,7 +233,8 @@ def panel():
             query += " AND s.estado = %s"
             params.append(estado_filtro)
 
-        query += " ORDER BY s.id DESC"
+        query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
 
         cursor.execute(query, params)
         solicitudes = cursor.fetchall()
@@ -263,7 +269,8 @@ def panel():
             query += " AND s.estado = %s"
             params.append(estado_filtro)
 
-        query += " ORDER BY s.id DESC"
+        query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
 
         cursor.execute(query, params)
         solicitudes = cursor.fetchall()
@@ -275,6 +282,7 @@ def panel():
         total = cursor.fetchone()['count']
 
         pendientes = proceso = resueltos = cerrados = 0
+        tiene_siguiente = len(solicitudes) == per_page
 
     conn.close()
 
@@ -286,7 +294,9 @@ def panel():
         proceso=proceso,
         resueltos=resueltos,
         cerrados=cerrados,
-        empleados=empleados
+        empleados=empleados,
+        page=page,
+        tiene_siguiente=tiene_siguiente
     )
 # ruta para ver el caso
 @app.route('/solicitud/<int:id>')

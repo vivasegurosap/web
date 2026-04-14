@@ -234,7 +234,19 @@
 
         {% endfor %}
     </table>
+    <div style="margin-top:20px; text-align:center;">
 
+    {% if page > 1 %}
+        <a href="{{ url_for('panel', page=page-1, estado=request.args.get('estado'), usuario=request.args.get('usuario')) }}">
+            <button>⬅ Anterior</button>
+        </a>
+    {% endif %}
+
+    {% if tiene_siguiente %}
+        <a href="{{ url_for('panel', page=page+1, estado=request.args.get('estado'), usuario=request.args.get('usuario')) }}">
+            <button>Siguiente ➡</button>
+        </a>
+    {% endif %}
 </div>
 <script>
 function cerrarModal() {
