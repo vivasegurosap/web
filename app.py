@@ -1,4 +1,3 @@
-from fastapi import params
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_mail import Mail, Message
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -194,7 +193,7 @@ def panel():
 
         if usuario_filtro:
             query += " AND s.asignado_a = %s"
-            params.append(int(usuario_filtro))
+            params.append(usuario_filtro)
 
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
