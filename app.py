@@ -462,7 +462,7 @@ Descripción:
     conn.commit()
     conn.close()
 
-    # Enviar correo vía SMTP
+    # Enviar correo SIN romper el sistema
     try:
         if ENV != "prod":
             with smtplib.SMTP('smtp.gmail.com', 587, timeout=5) as server:
@@ -471,6 +471,10 @@ Descripción:
                 server.send_message(msg)
     except Exception as e:
         print("Error enviando correo:", e)
+
+    # ✅ ESTO SIEMPRE DEBE EJECUTARSE
+    flash(f"Solicitud enviada correctamente. Radicado: {radicado}")
+    return redirect(url_for('panel'))
 
 
 # CAMBIAR ESTADO
