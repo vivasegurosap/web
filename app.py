@@ -31,6 +31,7 @@ def solo_internos(f):
 
 app = Flask(__name__)
 app.secret_key = "vivaap_secret"
+ENV = os.environ.get("ENV", "dev") #se coloca por ahora para evitar el error cuando se envia el correo, dado que se cobra.
 #app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 #os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -462,17 +463,14 @@ Descripción:
     conn.close()
 
     # Enviar correo vía SMTP
-    try:
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.starttls()
-            server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
-            server.send_message(msg)
-
-        flash(f"Solicitud enviada correctamente. Radicado: {radicado}")
-
-    except Exception as e:
-        print("Error enviando correo:", e)
-        flash(f"Solicitud guardada correctamente (sin envío de correo). Radicado: {radicado}")
+    if ENV == "prod":
+        try:
+            with smtplib.SMTP('smtp.gmail.com', 587, timeout=5) as server:
+                server.starttls()
+                server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
+                server.send_message(msg)
+        except Exception as e:
+            print("Error enviando correo:", e)
 
 
 # CAMBIAR ESTADO
