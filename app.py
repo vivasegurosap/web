@@ -462,13 +462,18 @@ Descripción:
     conn.close()
 
     # Enviar correo vía SMTP
-    with smtplib.SMTP('smtp.gmail.com', 587) as server:
-        server.starttls()
-        server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
-        server.send_message(msg)
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
+            server.send_message(msg)
 
-    flash(f"Solicitud enviada correctamente. Radicado: {radicado}")
-    return redirect(url_for('panel'))
+        flash(f"Solicitud enviada correctamente. Radicado: {radicado}")
+
+    except Exception as e:
+        print("Error enviando correo:", e)
+        flash(f"Solicitud guardada correctamente (sin envío de correo). Radicado: {radicado}")
+
 
 # CAMBIAR ESTADO
 @app.route('/estado/<int:id>/<estado>')
