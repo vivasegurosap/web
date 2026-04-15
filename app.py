@@ -463,14 +463,14 @@ Descripción:
     conn.close()
 
     # Enviar correo vía SMTP
-    if ENV == "prod":
-        try:
+    try:
+        if ENV != "prod":
             with smtplib.SMTP('smtp.gmail.com', 587, timeout=5) as server:
                 server.starttls()
                 server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
                 server.send_message(msg)
-        except Exception as e:
-            print("Error enviando correo:", e)
+    except Exception as e:
+        print("Error enviando correo:", e)
 
 
 # CAMBIAR ESTADO
