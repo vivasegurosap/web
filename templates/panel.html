@@ -212,12 +212,15 @@
 
     		<!-- OPCIONES SOLO PARA INTERNOS -->
     		{% if current_user.is_authenticated and current_user.rol in ["interno", "admin"] %}
-        	    <div style="margin-top:6px; font-size:12px;">
-            		<a href="{{ url_for('estado', id=s.id, estado='Pendiente') }}">⚪ Pendiente</a><br>
-            		<a href="{{ url_for('estado', id=s.id, estado='En proceso') }}">🟡 En proceso</a><br>
-            		<a href="{{ url_for('estado', id=s.id, estado='Resuelto') }}">🟢 Resuelto</a><br>
-            		<a href="{{ url_for('estado', id=s.id, estado='Cerrado') }}">🔴 Cerrar</a>
-        	    </div>
+        	    <div style="margin-top:6px;">
+    			<select onchange="cambiarEstado(this, {{ s.id }})" style="font-size:12px;">
+        		    <option value="">Cambiar estado</option>
+        		    <option value="Pendiente">⚪ Pendiente</option>
+        		    <option value="En proceso">🟡 En proceso</option>
+        		    <option value="Resuelto">🟢 Resuelto</option>
+        		    <option value="Cerrado">🔴 Cerrar</option>
+    			</select>
+		    </div>
     		{% endif %}
 
 	    </td>
@@ -253,6 +256,13 @@ function cerrarModal() {
     document.getElementById("alertModal").style.display = "none";
 }
 </script>
-
+<script>
+function cambiarEstado(select, id) {
+    const estado = select.value;
+    if (estado) {
+        window.location.href = "/estado/" + id + "/" + estado;
+    }
+}
+</script>
 </body>
 </html>
