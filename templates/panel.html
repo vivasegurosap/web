@@ -146,13 +146,25 @@
        <label>Estado:</label>
        <select name="estado">
            <option value="">Todos</option>
-           <option value="Recibido">Recibido</option>
-           <option value="Pendiente">⚪ Pendiente</option>
-           <option value="En proceso">🟡 En proceso</option>
-           <option value="Resuelto">🟢 Resuelto</option>
-           <option value="Cerrado">🔴 Cerrado</option>
+<option value="Recibido" {% if request.args.get('estado') == 'Recibido' %}selected{% endif %}>Recibido</option>
+<option value="Pendiente" {% if request.args.get('estado') == 'Pendiente' %}selected{% endif %}>⚪ Pendiente</option>
+<option value="En proceso" {% if request.args.get('estado') == 'En proceso' %}selected{% endif %}>🟡 En proceso</option>
+<option value="Resuelto" {% if request.args.get('estado') == 'Resuelto' %}selected{% endif %}>🟢 Resuelto</option>
+<option value="Cerrado" {% if request.args.get('estado') == 'Cerrado' %}selected{% endif %}>🔴 Cerrado</option>
        </select>
 
+   {% if current_user.rol == "interno" %}
+       <label>Empresa:</label>
+       <select name="empresa">
+         <option value="">Todas</option>
+         {% for e in empresas %}
+            <option value="{{ e.razon_social }}"
+              {% if request.args.get('empresa') == e.razon_social %}selected{% endif %}>
+    		{{ e.razon_social }}
+	    </option>
+         {% endfor %}
+      </select>
+   {% else %}
        <label>Usuario:</label>
        <select name="usuario">
            <option value="">Todos</option>
@@ -160,7 +172,7 @@
               <option value="{{ e.id }}">{{ e.nombre_completo }}</option>
            {% endfor %}
        </select>
-
+   {% endif %}
        <button type="submit">Filtrar</button>
 
     </form>
@@ -240,13 +252,13 @@
     <div style="margin-top:20px; text-align:center;">
 
     {% if page > 1 %}
-        <a href="{{ url_for('panel', page=page-1, estado=request.args.get('estado'), usuario=request.args.get('usuario')) }}">
+        <a href="{{ url_for('panel', page=page-1, estado=request.args.get('estado'), usuario=request.args.get('usuario'),empresa=request.args.get('empresa')) }}">
             <button>⬅ Anterior</button>
         </a>
     {% endif %}
 
     {% if tiene_siguiente %}
-        <a href="{{ url_for('panel', page=page+1, estado=request.args.get('estado'), usuario=request.args.get('usuario')) }}">
+        <a href="{{ url_for('panel', page=page+1, estado=request.args.get('estado'), usuario=request.args.get('usuario'),empresa=request.args.get('empresa')) }}">
             <button>Siguiente ➡</button>
         </a>
     {% endif %}

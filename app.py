@@ -163,6 +163,7 @@ def panel():
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     estado_filtro = request.args.get("estado")
     usuario_filtro = request.args.get("usuario")
+    empresa_filtro = request.args.get("empresa")
     page = request.args.get("page", 1, type=int)
     per_page = 7
     offset = (page - 1) * per_page
@@ -176,6 +177,12 @@ def panel():
         ORDER BY nombre_completo
     """)
     empleados = cursor.fetchall()
+    cursor.execute("""
+        SELECT DISTINCT razon_social 
+        FROM solicitudes
+        ORDER BY razon_social
+    """)
+    empresas = cursor.fetchall()
 
     # 🔴 ADMIN VE TODO
     if current_user.rol == "admin":
@@ -233,6 +240,9 @@ def panel():
         if estado_filtro:
             query += " AND s.estado = %s"
             params.append(estado_filtro)
+        if empresa_filtro:
+            query += " AND s.razon_social ILIKE %s"
+            params.append(f"%{empresa_filtro}%")
 
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
@@ -297,6 +307,7 @@ def panel():
         resueltos=resueltos,
         cerrados=cerrados,
         empleados=empleados,
+        empresas=empresas,
         page=page,
         tiene_siguiente=tiene_siguiente
     )
