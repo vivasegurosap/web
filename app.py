@@ -90,7 +90,7 @@ def generar_radicado():
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
-        u = request.form['username']
+        u = request.form['username'].strip()
         p = request.form['password']
 
         conn = get_db()
@@ -99,7 +99,7 @@ def login():
         cur.execute("""
             SELECT id, username, rol, nombre_completo, password_hash
             FROM usuarios
-            WHERE username=%s AND activo=TRUE
+            WHERE LOWER(username) = LOWER(%s) AND activo=TRUE
         """, (u,))
 
         user = cur.fetchone()

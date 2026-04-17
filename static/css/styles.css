@@ -108,8 +108,37 @@ table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;   /* 🔹 mantiene columnas fijas */
+    border-radius: 10px;   /* 👈 nuevo */
+    overflow: hidden;      /* 👈 nuevo */
+}
+/* 🔥 BORDES DE TABLA */
+table, th, td {
+    border: 1px solid #dcdcdc;
 }
 
+/* 🔥 ENCABEZADO */
+th {
+    background-color: #1F7A83; /* tu color corporativo */
+    color: white;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* 🔥 EFECTO FILAS */
+tr:nth-child(even) {
+    background-color: #f9fbfc;
+}
+
+tr:hover {
+    background-color: #eef3f5;
+}
+
+/* 🔥 ENCABEZADO FIJO */
+th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
 th, td {
     padding: 10px;
     text-align: left;
