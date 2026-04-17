@@ -288,13 +288,40 @@ def panel():
         solicitudes = cursor.fetchall()
         tiene_siguiente = len(solicitudes) == per_page
 
+                # 🔹 TOTAL
         cursor.execute("""
             SELECT COUNT(*) FROM solicitudes 
             WHERE creado_por = %s
         """, (current_user.id,))
         total = cursor.fetchone()['count']
 
-        pendientes = proceso = resueltos = cerrados = 0
+        # 🔹 PENDIENTES
+        cursor.execute("""
+            SELECT COUNT(*) FROM solicitudes 
+            WHERE creado_por = %s AND estado = 'Pendiente'
+        """, (current_user.id,))
+        pendientes = cursor.fetchone()['count']
+
+        # 🔹 EN PROCESO
+        cursor.execute("""
+            SELECT COUNT(*) FROM solicitudes 
+            WHERE creado_por = %s AND estado = 'En proceso'
+        """, (current_user.id,))
+        proceso = cursor.fetchone()['count']
+
+        # 🔹 RESUELTOS
+        cursor.execute("""
+            SELECT COUNT(*) FROM solicitudes 
+            WHERE creado_por = %s AND estado = 'Resuelto'
+        """, (current_user.id,))
+        resueltos = cursor.fetchone()['count']
+
+        # 🔹 CERRADOS
+        cursor.execute("""
+            SELECT COUNT(*) FROM solicitudes 
+            WHERE creado_por = %s AND estado = 'Cerrado'
+        """, (current_user.id,))
+        cerrados = cursor.fetchone()['count']
 
     conn.close()
 
