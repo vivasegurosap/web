@@ -140,6 +140,24 @@
 
     </div>
     <h2> Casos Registrados</h2>
+    <!-- 🔍 BUSCADOR NUEVO -->
+    <form method="GET" style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
+
+    	<input type="text" name="radicado" placeholder="Radicado"
+           value="{{ request.args.get('radicado','') }}">
+
+    	<input type="text" name="empresa" placeholder="Empresa"
+           value="{{ request.args.get('empresa','') }}">
+
+    	<input type="text" name="solicitante" placeholder="Solicitante"
+           value="{{ request.args.get('solicitante','') }}">
+
+    	<input type="text" name="tipo" placeholder="Tipo"
+           value="{{ request.args.get('tipo','') }}">
+
+    	<button type="submit">🔍 Buscar</button>
+
+    </form>
     {% if current_user.is_authenticated and current_user.rol in ["interno", "admin"] %}
     <form method="GET" style="margin-bottom:20px;">
 
@@ -178,7 +196,7 @@
     </form>
     {% endif %}
 
-
+    
     <table>
         <tr>
             <th>Radicado</th>
@@ -202,7 +220,23 @@
             <td>{{ s.razon_social }}</td>
             <td>{{ s.nombre_remitente }}</td>
             <td>{{ s.tipo_solicitud }}</td>
-	    <td>{{ s.asignado_nombre }}</td>
+	    <td>
+
+	    {% if current_user.rol == "admin" %}
+    		<select onchange="cambiarAsignado(this, {{ s.id }})">
+        	    <option value="">Sin asignar</option>
+        	    {% for e in empleados %}
+            		<option value="{{ e.id }}"
+                	   {% if s.asignado_a == e.id %}selected{% endif %}>
+                	    {{ e.nombre_completo }}
+            		</option>
+        	    {% endfor %}
+    		</select>
+	    {% else %}
+    		{{ s.asignado_nombre }}
+	    {% endif %}
+
+	    </td>
             <td>
 
     		<!-- Estado actual -->
@@ -273,6 +307,15 @@ function cambiarEstado(select, id) {
     const estado = select.value;
     if (estado) {
         window.location.href = "/estado/" + id + "/" + estado;
+    }
+}
+</script>
+<script>
+function cambiarAsignado(select, id) {
+    const usuario_id = select.value;
+
+    if (usuario_id) {
+        window.location.href = "/reasignar/" + id + "/" + usuario_id;
     }
 }
 </script>

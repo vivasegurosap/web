@@ -164,6 +164,10 @@ def panel():
     estado_filtro = request.args.get("estado")
     usuario_filtro = request.args.get("usuario")
     empresa_filtro = request.args.get("empresa")
+    radicado = request.args.get("radicado")
+    empresa_busqueda = request.args.get("empresa")
+    solicitante = request.args.get("solicitante")
+    tipo = request.args.get("tipo")
     page = request.args.get("page", 1, type=int)
     per_page = 7
     offset = (page - 1) * per_page
@@ -198,6 +202,23 @@ def panel():
         if estado_filtro:
             query += " AND s.estado = %s"
             params.append(estado_filtro)
+        # 🔍 BUSCADOR
+
+        if radicado:
+            query += " AND CAST(s.radicado AS TEXT) ILIKE %s"
+            params.append(f"%{radicado}%")
+
+        if empresa_busqueda:
+            query += " AND s.razon_social ILIKE %s"
+            params.append(f"%{empresa_busqueda}%")
+
+        if solicitante:
+            query += " AND s.nombre_remitente ILIKE %s"
+            params.append(f"%{solicitante}%")
+
+        if tipo:
+            query += " AND s.tipo_solicitud ILIKE %s"
+            params.append(f"%{tipo}%")
 
         if usuario_filtro:
             query += " AND s.asignado_a = %s"
@@ -243,6 +264,23 @@ def panel():
         if empresa_filtro:
             query += " AND s.razon_social ILIKE %s"
             params.append(f"%{empresa_filtro}%")
+        # 🔍 BUSCADOR
+
+        if radicado:
+            query += " AND CAST(s.radicado AS TEXT) ILIKE %s"
+            params.append(f"%{radicado}%")
+
+        if empresa_busqueda:
+            query += " AND s.razon_social ILIKE %s"
+            params.append(f"%{empresa_busqueda}%")
+
+        if solicitante:
+            query += " AND s.nombre_remitente ILIKE %s"
+            params.append(f"%{solicitante}%")
+
+        if tipo:
+            query += " AND s.tipo_solicitud ILIKE %s"
+            params.append(f"%{tipo}%")
 
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
@@ -280,6 +318,23 @@ def panel():
         if estado_filtro:
             query += " AND s.estado = %s"
             params.append(estado_filtro)
+        # 🔍 BUSCADOR
+
+        if radicado:
+            query += " AND CAST(s.radicado AS TEXT) ILIKE %s"
+            params.append(f"%{radicado}%")
+
+        if empresa_busqueda:
+            query += " AND s.razon_social ILIKE %s"
+            params.append(f"%{empresa_busqueda}%")
+
+        if solicitante:
+            query += " AND s.nombre_remitente ILIKE %s"
+            params.append(f"%{solicitante}%")
+
+        if tipo:
+            query += " AND s.tipo_solicitud ILIKE %s"
+            params.append(f"%{tipo}%")
 
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
@@ -338,6 +393,26 @@ def panel():
         page=page,
         tiene_siguiente=tiene_siguiente
     )
+@app.route('/reasignar/<int:id>/<int:usuario_id>')
+@login_required
+def reasignar(id, usuario_id):
+    if current_user.rol != "admin":
+        return redirect('/panel')  # seguridad
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE solicitudes
+        SET asignado_a = %s
+        WHERE id = %s
+    """, (usuario_id, id))
+
+    conn.commit()
+    conn.close()
+
+    return redirect('/panel')
+
 # ruta para ver el caso
 @app.route('/solicitud/<int:id>')
 @login_required

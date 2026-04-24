@@ -37,6 +37,7 @@ def solo_internos(f):
 
 app = Flask(__name__)
 app.secret_key = "vivaap_secret"
+ENV = os.environ.get("ENV", "dev") #se coloca por ahora para evitar el error cuando se envia el correo, dado que se cobra.
 #app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 #os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -95,7 +96,7 @@ def generar_radicado():
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
-        u = request.form['username']
+        u = request.form['username'].strip()
         p = request.form['password']
 
         conn = get_db()
@@ -104,7 +105,7 @@ def login():
         cur.execute("""
             SELECT id, username, rol, nombre_completo, password_hash
             FROM usuarios
-            WHERE username=%s AND activo=TRUE
+            WHERE LOWER(username) = LOWER(%s) AND activo=TRUE
         """, (u,))
 
         user = cur.fetchone()
@@ -166,6 +167,12 @@ def home():
 def panel():
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    estado_filtro = request.args.get("estado")
+    usuario_filtro = request.args.get("usuario")
+    empresa_filtro = request.args.get("empresa")
+    page = request.args.get("page", 1, type=int)
+    per_page = 7
+    offset = (page - 1) * per_page
     
 # 🔹 TRAER SIEMPRE LOS USUARIOS INTERNOS (para el select "Asignar a")
     cursor.execute("""
@@ -176,17 +183,39 @@ def panel():
         ORDER BY nombre_completo
     """)
     empleados = cursor.fetchall()
+    cursor.execute("""
+        SELECT DISTINCT razon_social 
+        FROM solicitudes
+        ORDER BY razon_social
+    """)
+    empresas = cursor.fetchall()
 
     # 🔴 ADMIN VE TODO
     if current_user.rol == "admin":
 
-        cursor.execute("""
+        query = """
             SELECT s.*, u.nombre_completo AS asignado_nombre
             FROM solicitudes s
             LEFT JOIN usuarios u ON s.asignado_a = u.id
-            ORDER BY s.id DESC
-        """)
+            WHERE 1=1
+        """
+        params = []
+
+        if estado_filtro:
+            query += " AND s.estado = %s"
+            params.append(estado_filtro)
+
+        if usuario_filtro:
+            query += " AND s.asignado_a = %s"
+            params.append(usuario_filtro)
+
+        query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
+
+        cursor.execute(query, params)
+
         solicitudes = cursor.fetchall()
+        tiene_siguiente = len(solicitudes) == per_page
 
         cursor.execute("SELECT COUNT(*) FROM solicitudes")
         total = cursor.fetchone()['count']
@@ -206,14 +235,27 @@ def panel():
     # 🔵 INTERNO SOLO VE LO ASIGNADO A ÉL
     elif current_user.rol == "interno":
 
-        cursor.execute("""
+        query = """
             SELECT s.*, u.nombre_completo AS asignado_nombre
             FROM solicitudes s
             LEFT JOIN usuarios u ON s.asignado_a = u.id
             WHERE s.asignado_a = %s
-            ORDER BY s.id DESC
-        """, (current_user.id,))
+        """
+        params = [current_user.id]
+
+        if estado_filtro:
+            query += " AND s.estado = %s"
+            params.append(estado_filtro)
+        if empresa_filtro:
+            query += " AND s.razon_social ILIKE %s"
+            params.append(f"%{empresa_filtro}%")
+
+        query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
+
+        cursor.execute(query, params)
         solicitudes = cursor.fetchall()
+        tiene_siguiente = len(solicitudes) == per_page
 
         cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE asignado_a=%s", (current_user.id,))
         total = cursor.fetchone()['count']
@@ -233,22 +275,59 @@ def panel():
     # 🟢 EXTERNO SOLO VE LO QUE ÉL RADICÓ
     else:
 
-        cursor.execute("""
+        query = """
             SELECT s.*, u.nombre_completo AS asignado_nombre
             FROM solicitudes s
             LEFT JOIN usuarios u ON s.asignado_a = u.id
-            WHERE s.nombre_remitente = %s
-            ORDER BY s.id DESC
-        """, (current_user.nombre_completo,))
-        solicitudes = cursor.fetchall()
+            WHERE s.creado_por = %s
+        """
+        params = [current_user.id]
 
+        if estado_filtro:
+            query += " AND s.estado = %s"
+            params.append(estado_filtro)
+
+        query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
+
+        cursor.execute(query, params)
+        solicitudes = cursor.fetchall()
+        tiene_siguiente = len(solicitudes) == per_page
+
+                # 🔹 TOTAL
         cursor.execute("""
             SELECT COUNT(*) FROM solicitudes 
-            WHERE nombre_remitente=%s
-        """, (current_user.nombre_completo,))
+            WHERE creado_por = %s
+        """, (current_user.id,))
         total = cursor.fetchone()['count']
 
-        pendientes = proceso = resueltos = cerrados = 0
+        # 🔹 PENDIENTES
+        cursor.execute("""
+            SELECT COUNT(*) FROM solicitudes 
+            WHERE creado_por = %s AND estado = 'Pendiente'
+        """, (current_user.id,))
+        pendientes = cursor.fetchone()['count']
+
+        # 🔹 EN PROCESO
+        cursor.execute("""
+            SELECT COUNT(*) FROM solicitudes 
+            WHERE creado_por = %s AND estado = 'En proceso'
+        """, (current_user.id,))
+        proceso = cursor.fetchone()['count']
+
+        # 🔹 RESUELTOS
+        cursor.execute("""
+            SELECT COUNT(*) FROM solicitudes 
+            WHERE creado_por = %s AND estado = 'Resuelto'
+        """, (current_user.id,))
+        resueltos = cursor.fetchone()['count']
+
+        # 🔹 CERRADOS
+        cursor.execute("""
+            SELECT COUNT(*) FROM solicitudes 
+            WHERE creado_por = %s AND estado = 'Cerrado'
+        """, (current_user.id,))
+        cerrados = cursor.fetchone()['count']
 
     conn.close()
 
@@ -260,7 +339,10 @@ def panel():
         proceso=proceso,
         resueltos=resueltos,
         cerrados=cerrados,
-        empleados=empleados
+        empleados=empleados,
+        empresas=empresas,
+        page=page,
+        tiene_siguiente=tiene_siguiente
     )
 # ruta para ver el caso
 @app.route('/solicitud/<int:id>')
@@ -363,8 +445,8 @@ def crear_solicitud():
     cursor.execute("""
         INSERT INTO solicitudes
         (razon_social, nombre_remitente, correo_contacto,
-        telefono_contacto, poliza, tipo_solicitud, descripcion, asignado_a)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        telefono_contacto, poliza, tipo_solicitud, descripcion, asignado_a, creado_por)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """,
     (
@@ -375,8 +457,8 @@ def crear_solicitud():
         request.form['poliza'],
         request.form['tipo_solicitud'],
         request.form['descripcion'],
-        asignado_a
-
+        asignado_a,
+        current_user.id
     ))
 
 
@@ -424,14 +506,20 @@ Descripción:
     conn.commit()
     conn.close()
 
-    # Enviar correo vía SMTP
-    with smtplib.SMTP('smtp.gmail.com', 587) as server:
-        server.starttls()
-        server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
-        server.send_message(msg)
+    # Enviar correo SIN romper el sistema
+    try:
+        if ENV != "prod":
+            with smtplib.SMTP('smtp.gmail.com', 587, timeout=5) as server:
+                server.starttls()
+                server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
+                server.send_message(msg)
+    except Exception as e:
+        print("Error enviando correo:", e)
 
+    # ✅ ESTO SIEMPRE DEBE EJECUTARSE
     flash(f"Solicitud enviada correctamente. Radicado: {radicado}")
     return redirect(url_for('panel'))
+
 
 # CAMBIAR ESTADO
 @app.route('/estado/<int:id>/<estado>')
