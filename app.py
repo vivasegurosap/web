@@ -163,12 +163,8 @@ def panel():
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     estado_filtro = request.args.get("estado")
     usuario_filtro = request.args.get("usuario")
-    empresa_filtro = request.args.get("empresa")
-    radicado = request.args.get("radicado")
-    empresa_busqueda = request.args.get("empresa")
-    solicitante = request.args.get("solicitante")
-    tipo = request.args.get("tipo")
     page = request.args.get("page", 1, type=int)
+    q = request.args.get("q")
     per_page = 7
     offset = (page - 1) * per_page
     
@@ -202,27 +198,20 @@ def panel():
         if estado_filtro:
             query += " AND s.estado = %s"
             params.append(estado_filtro)
-        # 🔍 BUSCADOR
-
-        if radicado:
-            query += " AND CAST(s.radicado AS TEXT) ILIKE %s"
-            params.append(f"%{radicado}%")
-
-        if empresa_busqueda:
-            query += " AND s.razon_social ILIKE %s"
-            params.append(f"%{empresa_busqueda}%")
-
-        if solicitante:
-            query += " AND s.nombre_remitente ILIKE %s"
-            params.append(f"%{solicitante}%")
-
-        if tipo:
-            query += " AND s.tipo_solicitud ILIKE %s"
-            params.append(f"%{tipo}%")
-
+        
         if usuario_filtro:
             query += " AND s.asignado_a = %s"
             params.append(usuario_filtro)
+        if q:
+            query += """
+            AND (
+                CAST(s.radicado AS TEXT) ILIKE %s OR
+                s.razon_social ILIKE %s OR
+                s.nombre_remitente ILIKE %s OR
+                s.tipo_solicitud ILIKE %s
+            )
+            """
+            params.extend([f"%{q}%"] * 4)
 
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
@@ -261,27 +250,18 @@ def panel():
         if estado_filtro:
             query += " AND s.estado = %s"
             params.append(estado_filtro)
-        if empresa_filtro:
-            query += " AND s.razon_social ILIKE %s"
-            params.append(f"%{empresa_filtro}%")
-        # 🔍 BUSCADOR
-
-        if radicado:
-            query += " AND CAST(s.radicado AS TEXT) ILIKE %s"
-            params.append(f"%{radicado}%")
-
-        if empresa_busqueda:
-            query += " AND s.razon_social ILIKE %s"
-            params.append(f"%{empresa_busqueda}%")
-
-        if solicitante:
-            query += " AND s.nombre_remitente ILIKE %s"
-            params.append(f"%{solicitante}%")
-
-        if tipo:
-            query += " AND s.tipo_solicitud ILIKE %s"
-            params.append(f"%{tipo}%")
-
+        
+        if q:
+            query += """
+            AND (
+                CAST(s.radicado AS TEXT) ILIKE %s OR
+                s.razon_social ILIKE %s OR
+                s.nombre_remitente ILIKE %s OR
+                s.tipo_solicitud ILIKE %s
+            )
+            """
+            params.extend([f"%{q}%"] * 4)
+        
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
 
@@ -318,24 +298,17 @@ def panel():
         if estado_filtro:
             query += " AND s.estado = %s"
             params.append(estado_filtro)
-        # 🔍 BUSCADOR
-
-        if radicado:
-            query += " AND CAST(s.radicado AS TEXT) ILIKE %s"
-            params.append(f"%{radicado}%")
-
-        if empresa_busqueda:
-            query += " AND s.razon_social ILIKE %s"
-            params.append(f"%{empresa_busqueda}%")
-
-        if solicitante:
-            query += " AND s.nombre_remitente ILIKE %s"
-            params.append(f"%{solicitante}%")
-
-        if tipo:
-            query += " AND s.tipo_solicitud ILIKE %s"
-            params.append(f"%{tipo}%")
-
+        if q:
+            query += """
+            AND (
+                CAST(s.radicado AS TEXT) ILIKE %s OR
+                s.razon_social ILIKE %s OR
+                s.nombre_remitente ILIKE %s OR
+                s.tipo_solicitud ILIKE %s
+            )
+            """
+            params.extend([f"%{q}%"] * 4)
+       
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
 
