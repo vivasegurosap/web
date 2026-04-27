@@ -17,6 +17,7 @@ from functools import wraps
 from flask import abort
 from flask import send_file
 from io import BytesIO
+import pandas as pd
 
 def solo_internos(f):
     @wraps(f)
@@ -154,7 +155,90 @@ def logout():
 @login_required
 def home():
     return redirect(url_for('panel'))
+@app.route('/exportar_excel')
+@login_required
+def exportar_excel():
 
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    estado = request.args.get("estado")
+    usuario = request.args.get("usuario")
+    q = request.args.get("q")
+    fecha_inicio = request.args.get("fecha_inicio")
+    fecha_fin = request.args.get("fecha_fin")
+
+    query = """
+        SELECT 
+            s.radicado,
+            s.razon_social,
+            s.nombre_remitente,
+            s.tipo_solicitud,
+            s.estado,
+            u.nombre_completo AS asignado,
+            s.fecha_creacion,
+            s.fecha_cierre,
+            COALESCE(s.fecha_cierre, NOW()) - s.fecha_creacion AS tiempo_resolucion
+        FROM solicitudes s
+        LEFT JOIN usuarios u ON s.asignado_a = u.id
+        WHERE 1=1
+    """
+
+    params = []
+
+    if estado:
+        query += " AND s.estado = %s"
+        params.append(estado)
+
+    if usuario:
+        query += " AND s.asignado_a = %s"
+        params.append(usuario)
+
+    if q:
+        query += """
+        AND (
+            CAST(s.radicado AS TEXT) ILIKE %s OR
+            s.razon_social ILIKE %s OR
+            s.nombre_remitente ILIKE %s OR
+            s.tipo_solicitud ILIKE %s
+        )
+        """
+        params.extend([f"%{q}%"] * 4)
+
+    if fecha_inicio:
+        query += " AND DATE(s.fecha_creacion) >= %s"
+        params.append(fecha_inicio)
+
+    if fecha_fin:
+        query += " AND DATE(s.fecha_creacion) <= %s"
+        params.append(fecha_fin)
+
+    query += " ORDER BY s.id DESC"
+
+    cursor.execute(query, params)
+    data = cursor.fetchall()
+    conn.close()
+
+    # 🔴 Si no hay datos, evitar error
+    if not data:
+        flash("No hay datos para exportar con esos filtros")
+        return redirect(url_for('panel'))
+
+    df = pd.DataFrame(data)
+
+    # 👉 convertir tiempo a texto (para que Excel lo entienda mejor)
+    if 'tiempo_resolucion' in df.columns:
+        df['tiempo_resolucion'] = df['tiempo_resolucion'].astype(str)
+
+    output = BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name="reporte_solicitudes.xlsx",
+        as_attachment=True
+    )
 # PANEL
 @app.route('/panel')
 @login_required
@@ -163,6 +247,8 @@ def panel():
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     estado_filtro = request.args.get("estado")
     usuario_filtro = request.args.get("usuario")
+    fecha_inicio = request.args.get("fecha_inicio")
+    fecha_fin = request.args.get("fecha_fin")
     page = request.args.get("page", 1, type=int)
     q = request.args.get("q")
     per_page = 7
@@ -212,6 +298,13 @@ def panel():
             )
             """
             params.extend([f"%{q}%"] * 4)
+        if fecha_inicio:
+            query += " AND DATE(s.fecha_creacion) >= %s"
+            params.append(fecha_inicio)
+
+        if fecha_fin:
+            query += " AND DATE(s.fecha_creacion) <= %s"
+            params.append(fecha_fin)
 
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
@@ -264,6 +357,13 @@ def panel():
             )
             """
             params.extend([f"%{q}%"] * 4)
+        if fecha_inicio:
+            query += " AND DATE(s.fecha_creacion) >= %s"
+            params.append(fecha_inicio)
+
+        if fecha_fin:
+            query += " AND DATE(s.fecha_creacion) <= %s"
+            params.append(fecha_fin)
         
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
@@ -314,6 +414,13 @@ def panel():
             )
             """
             params.extend([f"%{q}%"] * 4)
+        if fecha_inicio:
+            query += " AND DATE(s.fecha_creacion) >= %s"
+            params.append(fecha_inicio)
+
+        if fecha_fin:
+            query += " AND DATE(s.fecha_creacion) <= %s"
+            params.append(fecha_fin)
        
         query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])

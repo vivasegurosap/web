@@ -142,6 +142,12 @@
     <h2> Casos Registrados</h2>
     <form method="GET" style="margin-bottom:20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
 
+      <input type="date" name="fecha_inicio"
+       value="{{ request.args.get('fecha_inicio','') }}">
+
+      <input type="date" name="fecha_fin"
+       value="{{ request.args.get('fecha_fin','') }}">
+
       <input type="text" name="q"
         placeholder="🔍 Buscar (radicado, empresa, solicitante, tipo)"
         value="{{ request.args.get('q','') }}"
@@ -168,6 +174,19 @@
       <button type="submit">Buscar</button>
 
     </form>
+    </form>
+
+    <div style="margin-bottom:15px;">
+        <a href="{{ url_for('exportar_excel',
+            estado=request.args.get('estado'),
+            usuario=request.args.get('usuario'),
+            q=request.args.get('q'),
+            fecha_inicio=request.args.get('fecha_inicio'),
+            fecha_fin=request.args.get('fecha_fin')
+        ) }}">
+            <button type="button">📤 Exportar Excel</button>
+        </a>
+    </div>
     
     <table>
         <tr>
