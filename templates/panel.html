@@ -148,18 +148,18 @@
 
       <input type="date" name="fecha_inicio"
         value="{{ request.args.get('fecha_inicio','') }}"
-        style="height:42px; padding:10px; border-radius:8px; border:1px solid #ccc;"
+        style="height:42px; padding:10px; border-radius:8px; border:1px solid #ccc;">
 
       <input type="date" name="fecha_fin"
         value="{{ request.args.get('fecha_fin','') }}"
-        style="height:42px; padding:10px; border-radius:8px; border:1px solid #ccc;"
+        style="height:42px; padding:10px; border-radius:8px; border:1px solid #ccc;">
 
       <input type="text" name="q"
         placeholder="🔍 Radicado, empresa o solicitante"
         value="{{ request.args.get('q','') }}"
-        style="height:42px; padding:10px; border-radius:8px; border:1px solid #ccc;"
+        style="height:42px; padding:10px; border-radius:8px; border:1px solid #ccc;">
 
-      <select name="estado" style="padding:10px; border-radius:8px;">
+      <select name="estado" style="height:42px; padding:10px; border-radius:8px;">
         <option value="">Estado</option>
         <option value="Recibido" {% if request.args.get('estado') == 'Recibido' %}selected{% endif %}>Recibido</option>
         <option value="Pendiente" {% if request.args.get('estado') == 'Pendiente' %}selected{% endif %}>Pendiente</option>
@@ -168,7 +168,7 @@
         <option value="Cerrado" {% if request.args.get('estado') == 'Cerrado' %}selected{% endif %}>Cerrado</option>
     </select>
 
-      <select name="usuario" style="padding:10px; border-radius:8px;">
+      <select name="estado" style="height:42px; padding:10px; border-radius:8px;">
         <option value="">Asignado a</option>
         {% for e in empleados %}
           <option value="{{ e.id }}"
@@ -197,7 +197,7 @@
       ) }}"
       style="
         padding:10px 20px;
-        background:#27ae60;
+        background:#7f8c8d;
         color:white;
         border-radius:8px;
         text-decoration:none;
