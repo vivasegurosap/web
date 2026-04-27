@@ -140,12 +140,12 @@
 
     </div>
     <h2> Casos Registrados</h2>
-    <form method="GET" style="margin-bottom:20px; display:flex; gap:10px; align-items:center;">
+    <form method="GET" style="margin-bottom:20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
 
       <input type="text" name="q"
         placeholder="🔍 Buscar (radicado, empresa, solicitante, tipo)"
         value="{{ request.args.get('q','') }}"
-        style="flex:1; padding:12px; border-radius:8px; border:1px solid #ccc;">
+        style="flex:1; min-width:250px; padding:12px; border-radius:8px; border:1px solid #ccc;"
 
       <select name="estado" style="padding:10px; border-radius:8px;">
         <option value="">Todos los estados</option>
