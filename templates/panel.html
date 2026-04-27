@@ -140,74 +140,90 @@
 
     </div>
     <h2> Casos Registrados</h2>
-    <form method="GET" style="display:flex; gap:10px; align-items:center; overflow-x:auto; white-space:nowra; padding-bottom:5px;">
+    <form method="GET" style="margin-bottom:20px;">
+
+  	<!-- 🔵 FILA 1: FILTROS -->
+      <div style="display:flex; gap:10px; align-items:center; overflow-x:auto; white-space:nowrap; margin-bottom:10px;">
+
 
       <input type="date" name="fecha_inicio"
- 	value="{{ request.args.get('fecha_inicio','') }}"
- 	style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        value="{{ request.args.get('fecha_inicio','') }}"
+        style="height:42px; padding:10px; border-radius:8px; border:1px solid #ccc;"
 
       <input type="date" name="fecha_fin"
- 	value="{{ request.args.get('fecha_fin','') }}"
- 	style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        value="{{ request.args.get('fecha_fin','') }}"
+        style="height:42px; padding:10px; border-radius:8px; border:1px solid #ccc;"
 
       <input type="text" name="q"
-        placeholder="🔍 Buscar (radicado, empresa, solicitante, tipo)"
+        placeholder="🔍 Radicado, empresa o solicitante"
         value="{{ request.args.get('q','') }}"
-        style="min-width:250px; padding:12px; border-radius:8px; border:1px solid #ccc;">
+        style="height:42px; padding:10px; border-radius:8px; border:1px solid #ccc;"
 
       <select name="estado" style="padding:10px; border-radius:8px;">
-        <option value="">Estados</option>
+        <option value="">Estado</option>
         <option value="Recibido" {% if request.args.get('estado') == 'Recibido' %}selected{% endif %}>Recibido</option>
         <option value="Pendiente" {% if request.args.get('estado') == 'Pendiente' %}selected{% endif %}>Pendiente</option>
         <option value="En proceso" {% if request.args.get('estado') == 'En proceso' %}selected{% endif %}>En proceso</option>
         <option value="Resuelto" {% if request.args.get('estado') == 'Resuelto' %}selected{% endif %}>Resuelto</option>
         <option value="Cerrado" {% if request.args.get('estado') == 'Cerrado' %}selected{% endif %}>Cerrado</option>
-      </select>
-      <select name="usuario" style="padding:10px; border-radius:8px;">
-    	<option value="">Asignados</option>
-    	{% for e in empleados %}
-            <option value="{{ e.id }}"
-                {% if request.args.get('usuario') == e.id|string %}selected{% endif %}>
-                {{ e.nombre_completo }}
-            </option>
-        {% endfor %}
-     </select>
+    </select>
 
-      <button type="submit">Buscar</button>
+      <select name="usuario" style="padding:10px; border-radius:8px;">
+        <option value="">Asignado a</option>
+        {% for e in empleados %}
+          <option value="{{ e.id }}"
+            {% if request.args.get('usuario') == e.id|string %}selected{% endif %}>
+            {{ e.nombre_completo }}
+          </option>
+        {% endfor %}
+      </select>
+
+    </div>
+
+    <!-- 🟢 FILA 2: BOTONES CENTRADOS -->
+    <div style=" display:flex; justify-content:center; gap:15px; flex-wrap:wrap;">
+
+      <button type="submit"
+        style="padding:10px 20px; border-radius:8px;">
+        🔍 Buscar
+      </button>
 
       <a href="{{ url_for('exportar_excel',
-  	estado=request.args.get('estado'),
-  	usuario=request.args.get('usuario'),
-  	q=request.args.get('q'),
-  	fecha_inicio=request.args.get('fecha_inicio'),
-  	fecha_fin=request.args.get('fecha_fin')
+        estado=request.args.get('estado'),
+        usuario=request.args.get('usuario'),
+        q=request.args.get('q'),
+        fecha_inicio=request.args.get('fecha_inicio'),
+        fecha_fin=request.args.get('fecha_fin')
       ) }}"
       style="
-  	padding:10px 15px;
-  	background:#27ae60;
-  	color:white;
-  	border-radius:8px;
-  	text-decoration:none;
-  	display:inline-flex;
-  	align-items:center;
+        padding:10px 20px;
+        background:#27ae60;
+        color:white;
+        border-radius:8px;
+        text-decoration:none;
+        display:inline-flex;
+	align-items:center;
+	justify-content:center;
       ">
-  	Export
-      </a>
-      <a href="{{ url_for('panel') }}"
-      style="
-    	padding:10px 15px;
-    	background:#27ae60;
-    	color:white;
-    	border-radius:8px;
-    	text-decoration:none;
-    	display:inline-flex;
-    	align-items:center;
-    	white-space:nowrap;
-      ">
-         Limpiar
+        📤 Exportar
       </a>
 
-    </form>
+      <a href="{{ url_for('panel') }}"
+      style="
+        padding:10px 20px;
+        background:#7f8c8d;
+        color:white;
+        border-radius:8px;
+        text-decoration:none;
+        display:flex;
+        align-items:center;
+      ">
+        Limpiar
+      </a>
+
+    </div>
+
+  </form>
     
     <table>
         <tr>
