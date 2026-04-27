@@ -140,18 +140,20 @@
 
     </div>
     <h2> Casos Registrados</h2>
-    <form method="GET" style="margin-bottom:20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <form method="GET" style="display:flex; gap:10px; align-items:center; overflow-x:auto; white-space:nowra; padding-bottom:5px;">
 
       <input type="date" name="fecha_inicio"
-       value="{{ request.args.get('fecha_inicio','') }}">
+ 	value="{{ request.args.get('fecha_inicio','') }}"
+ 	style="padding:10px; border-radius:8px; border:1px solid #ccc;">
 
       <input type="date" name="fecha_fin"
-       value="{{ request.args.get('fecha_fin','') }}">
+ 	value="{{ request.args.get('fecha_fin','') }}"
+ 	style="padding:10px; border-radius:8px; border:1px solid #ccc;">
 
       <input type="text" name="q"
         placeholder="🔍 Buscar (radicado, empresa, solicitante, tipo)"
         value="{{ request.args.get('q','') }}"
-        style="flex:1; min-width:250px; padding:12px; border-radius:8px; border:1px solid #ccc;">
+        style="min-width:250px; padding:12px; border-radius:8px; border:1px solid #ccc;">
 
       <select name="estado" style="padding:10px; border-radius:8px;">
         <option value="">Todos los estados</option>
@@ -173,20 +175,39 @@
 
       <button type="submit">Buscar</button>
 
-    </form>
-    </form>
+      <a href="{{ url_for('exportar_excel',
+  	estado=request.args.get('estado'),
+  	usuario=request.args.get('usuario'),
+  	q=request.args.get('q'),
+  	fecha_inicio=request.args.get('fecha_inicio'),
+  	fecha_fin=request.args.get('fecha_fin')
+      ) }}"
+      style="
+  	padding:10px 15px;
+  	background:#27ae60;
+  	color:white;
+  	border-radius:8px;
+  	text-decoration:none;
+  	display:inline-flex;
+  	align-items:center;
+      ">
+  	📤 Excel
+      </a>
+      <a href="{{ url_for('panel') }}"
+      style="
+    	padding:10px 15px;
+    	background:#7f8c8d;
+    	color:white;
+    	border-radius:8px;
+    	text-decoration:none;
+    	display:inline-flex;
+    	align-items:center;
+    	white-space:nowrap;
+      ">
+         ♻ Limpiar
+      </a>
 
-    <div style="margin-bottom:15px;">
-        <a href="{{ url_for('exportar_excel',
-            estado=request.args.get('estado'),
-            usuario=request.args.get('usuario'),
-            q=request.args.get('q'),
-            fecha_inicio=request.args.get('fecha_inicio'),
-            fecha_fin=request.args.get('fecha_fin')
-        ) }}">
-            <button type="button">📤 Exportar Excel</button>
-        </a>
-    </div>
+    </form>
     
     <table>
         <tr>
