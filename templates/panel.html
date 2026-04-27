@@ -156,7 +156,7 @@
         style="min-width:250px; padding:12px; border-radius:8px; border:1px solid #ccc;">
 
       <select name="estado" style="padding:10px; border-radius:8px;">
-        <option value="">Todos los estados</option>
+        <option value="">Estados</option>
         <option value="Recibido" {% if request.args.get('estado') == 'Recibido' %}selected{% endif %}>Recibido</option>
         <option value="Pendiente" {% if request.args.get('estado') == 'Pendiente' %}selected{% endif %}>Pendiente</option>
         <option value="En proceso" {% if request.args.get('estado') == 'En proceso' %}selected{% endif %}>En proceso</option>
@@ -164,7 +164,7 @@
         <option value="Cerrado" {% if request.args.get('estado') == 'Cerrado' %}selected{% endif %}>Cerrado</option>
       </select>
       <select name="usuario" style="padding:10px; border-radius:8px;">
-    	<option value="">Todos los asignados</option>
+    	<option value="">Asignados</option>
     	{% for e in empleados %}
             <option value="{{ e.id }}"
                 {% if request.args.get('usuario') == e.id|string %}selected{% endif %}>
@@ -191,12 +191,12 @@
   	display:inline-flex;
   	align-items:center;
       ">
-  	📤 Excel
+  	Export
       </a>
       <a href="{{ url_for('panel') }}"
       style="
     	padding:10px 15px;
-    	background:#7f8c8d;
+    	background:#27ae60;
     	color:white;
     	border-radius:8px;
     	text-decoration:none;
@@ -204,7 +204,7 @@
     	align-items:center;
     	white-space:nowrap;
       ">
-         ♻ Limpiar
+         Limpiar
       </a>
 
     </form>
