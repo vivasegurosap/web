@@ -250,6 +250,9 @@ def panel():
         if estado_filtro:
             query += " AND s.estado = %s"
             params.append(estado_filtro)
+        if usuario_filtro:
+            query += " AND s.asignado_a = %s"
+            params.append(usuario_filtro)
         
         if q:
             query += """
@@ -298,6 +301,9 @@ def panel():
         if estado_filtro:
             query += " AND s.estado = %s"
             params.append(estado_filtro)
+        if usuario_filtro:
+            query += " AND s.asignado_a = %s"
+            params.append(usuario_filtro)
         if q:
             query += """
             AND (
