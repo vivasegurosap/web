@@ -265,19 +265,6 @@
     		{{ s.asignado_nombre }}
 	    {% endif %}
 	    </td>
-	    <td>
-    		{% if s.fecha_creacion %}
-        	    {{ s.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}
-    		{% endif %}
-	    </td>
-
-	    <td>
-    		{% if s.fecha_cierre %}
-        	   {{ s.fecha_cierre.strftime('%d/%m/%Y %H:%M') }}
-    		{% else %}
-       		     -
-    		{% endif %}
-	    </td>
             <td>
 
     		<!-- Estado actual -->
@@ -310,6 +297,19 @@
 		    </div>
     		{% endif %}
 
+	    </td>
+	     <td>
+    		{% if s.fecha_creacion %}
+        	    {{ s.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}
+    		{% endif %}
+	    </td>
+
+	    <td>
+    		{% if s.fecha_cierre %}
+        	   {{ s.fecha_cierre.strftime('%d/%m/%Y %H:%M') }}
+    		{% else %}
+       		     -
+    		{% endif %}
 	    </td>
 	    {% if current_user.rol == "admin" %}
     	    <td>
