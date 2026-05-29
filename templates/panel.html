@@ -168,7 +168,7 @@
         <option value="Cerrado" {% if request.args.get('estado') == 'Cerrado' %}selected{% endif %}>Cerrado</option>
     </select>
 
-      <select name="estado" style="height:42px; padding:10px; border-radius:8px;">
+      <select name="usuario" style="height:42px; padding:10px; border-radius:8px;">
         <option value="">Asignado a</option>
         {% for e in empleados %}
           <option value="{{ e.id }}"
@@ -233,6 +233,8 @@
             <th>Tipo</th>
 	    <th>Asignado a</th>
             <th>Estado</th>
+	    <th>Fecha Creación</th>
+	    <th>Fecha Cierre</th>
 	    {% if current_user.rol == "admin" %}
        	    <th>Eliminar</th>
             {% endif %}
@@ -249,7 +251,6 @@
             <td>{{ s.nombre_remitente }}</td>
             <td>{{ s.tipo_solicitud }}</td>
 	    <td>
-
 	    {% if current_user.rol == "admin" %}
     		<select onchange="cambiarAsignado(this, {{ s.id }})">
         	    <option value="">Sin asignar</option>
@@ -263,7 +264,19 @@
 	    {% else %}
     		{{ s.asignado_nombre }}
 	    {% endif %}
+	    </td>
+	    <td>
+    		{% if s.fecha_creacion %}
+        	    {{ s.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}
+    		{% endif %}
+	    </td>
 
+	    <td>
+    		{% if s.fecha_cierre %}
+        	   {{ s.fecha_cierre.strftime('%d/%m/%Y %H:%M') }}
+    		{% else %}
+       		     -
+    		{% endif %}
 	    </td>
             <td>
 
