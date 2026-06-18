@@ -18,6 +18,7 @@ from flask import abort
 from flask import send_file
 from io import BytesIO
 import pandas as pd
+from sharepoint_service import crear_solicitud_sharepoint
 
 def solo_internos(f):
     @wraps(f)
@@ -138,7 +139,7 @@ def crear_usuario():
 
         conn.commit()
         conn.close()
-
+        
         flash("Usuario creado correctamente")
         return redirect('/panel')
 
@@ -660,6 +661,25 @@ Descripción:
 
     conn.commit()
     conn.close()
+    try:
+
+        crear_solicitud_sharepoint(
+            radicado=radicado,
+            razon_social=request.form['razon_social'],
+            nombre_remitente=request.form['nombre_remitente'],
+            correo_contacto=request.form['correo_contacto'],
+            telefono_contacto=request.form['telefono_contacto'],
+            poliza=request.form['poliza'],
+            tipo_solicitud=request.form['tipo_solicitud'],
+            descripcion=request.form['descripcion'],
+            asignado_a=str(asignado_a),
+            creado_por=str(current_user.id)
+        )
+
+        print("Solicitud enviada a SharePoint correctamente")
+
+    except Exception as e:
+        print("ERROR SHAREPOINT:", e)
 
     # Enviar correo SIN romper el sistema
     try:
