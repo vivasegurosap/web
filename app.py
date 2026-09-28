@@ -6,8 +6,6 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 import random
 import smtplib
-import psycopg2
-import psycopg2.extras
 import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -18,7 +16,19 @@ from flask import abort
 from flask import send_file
 from io import BytesIO
 import pandas as pd
-from sharepoint_service import crear_solicitud_sharepoint
+from sharepoint_service import (crear_solicitud_sharepoint, obtener_siguiente_radicado, obtener_usuarios_internos)
+from sharepoint_service import obtener_solicitudes
+from sharepoint_service import crear_item_sharepoint
+from sharepoint_service import obtener_usuario_por_id
+from sharepoint_service import obtener_token
+from sharepoint_service import eliminar_item_sharepoint
+from sharepoint_service import actualizar_item_sharepoint
+from usuarios_sharepoint import (buscar_usuario_por_correo, actualizar_password_usuario, buscar_usuario)
+from correo_service import crear_html_resolucion, enviar_correo_resolucion
+from sharepoint_service import obtener_adjuntos_para_correo
+import secrets
+import string
+import re
 
 def solo_internos(f):
     @wraps(f)
@@ -33,12 +43,16 @@ def solo_internos(f):
 
 app = Flask(__name__)
 app.secret_key = "vivaap_secret"
+LISTA_USUARIOS_ID = os.getenv("USUARIOS_LIST_ID")
+LISTA_SOLICITUDES_ID = os.getenv("LIST_ID")
 ENV = os.environ.get("ENV", "dev") #se coloca por ahora para evitar el error cuando se envia el correo, dado que se cobra.
 #app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 #os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # CORREO
-
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'tecnologiasvisuales940@gmail.com'
 app.config['MAIL_PASSWORD'] = 'koavxwdwsdornvsv'
@@ -50,18 +64,6 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
-def get_db():
-    database_url = os.environ.get("DATABASE_URL")
-
-    if not database_url:
-        raise Exception("DATABASE_URL no está configurado")
-
-    # 🔥 Render a veces usa postgres:// y psycopg2 exige postgresql://
-    if database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-
-    return psycopg2.connect(database_url)
-
 class User(UserMixin):
     def __init__(self, id, username, rol, nombre_completo):
         self.id = str(id)
@@ -69,20 +71,32 @@ class User(UserMixin):
         self.rol = rol
         self.nombre_completo = nombre_completo
 
+def generar_password_temporal():
+
+    letras = string.ascii_letters
+    numeros = string.digits
+
+    caracteres = letras + numeros
+
+    return "".join(
+        random.choice(caracteres)
+        for _ in range(10)
+    )
 @login_manager.user_loader
 def load_user(user_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT id, username, rol, nombre_completo 
-        FROM usuarios 
-        WHERE id=%s
-    """, (user_id,))
-    row = cur.fetchone()
-    conn.close()
 
-    if row:
-        return User(row[0], row[1], row[2], row[3])
+    from usuarios_sharepoint import buscar_usuario_por_id
+
+    user = buscar_usuario_por_id(user_id)
+
+    if user:
+        return User(
+            user["id"],
+            user["username"],
+            user["rol"],
+            user["nombre_completo"]
+        )
+
     return None
 
 
@@ -95,51 +109,214 @@ def login():
         u = request.form['username'].strip()
         p = request.form['password']
 
-        conn = get_db()
-        cur = conn.cursor()
+        from usuarios_sharepoint import buscar_usuario
+        user = buscar_usuario(u)
 
-        cur.execute("""
-            SELECT id, username, rol, nombre_completo, password_hash
-            FROM usuarios
-            WHERE LOWER(username) = LOWER(%s) AND activo=TRUE
-        """, (u,))
+        print("USUARIO:", user)
+        print("PASSWORD TEMPORAL:", user.get("password_temporal"))
 
-        user = cur.fetchone()
-        conn.close()
+        if user:
 
-        if user and check_password_hash(user[4], p):
-            login_user(User(user[0], user[1], user[2], user[3]))
-            flash("modal_bienvenida")
-            return redirect('/panel')
+            resultado = check_password_hash(user["password_hash"], p)
 
-    return render_template('login.html')
+            print("PASSWORD OK:", resultado)
+
+            if resultado:
+
+                login_user(User(
+                    user["id"],
+                    user["username"],
+                    user["rol"],
+                    user["nombre_completo"]
+                ))
+
+                # Si la contraseña es temporal
+                if user.get("password_temporal"):
+
+                    return redirect(url_for("cambiar_password_temporal"))
+
+                flash("modal_bienvenida")
+                return redirect("/panel")
+
+            else:
+                flash("Usuario o contraseña incorrecta.")
+
+        else:
+            flash("Usuario o contraseña incorrecta.")
+
+    return render_template('login.html') 
+
+@app.route("/recuperar_password", methods=["GET", "POST"])
+def recuperar_password():
+
+    if request.method == "POST":
+
+        correo = request.form["correo"].strip().lower()
+
+        from usuarios_sharepoint import (
+            buscar_usuario_por_correo,
+            actualizar_password_usuario
+        )
+
+        from werkzeug.security import generate_password_hash
+
+        usuario = buscar_usuario_por_correo(correo)
+
+        if usuario:
+
+            try:
+
+                # Generar contraseña temporal
+                password_temporal = generar_password_temporal()
+
+                # Convertir a hash
+                password_hash = generate_password_hash(password_temporal)
+
+                # Actualizar SharePoint
+                actualizar_password_usuario(
+                    usuario["id"],
+                    password_hash,
+                    True
+                )
+
+                # Enviar correo
+                msg = Message(
+                    subject="Recuperación de contraseña - VivaAP",
+                    recipients=[correo]
+                )
+
+                msg.body = f"""
+        Hola {usuario['nombre_completo']},
+
+        Se generó una contraseña temporal para ingresar a VivaAP.
+
+        Usuario:
+        {usuario['username']}
+
+        Contraseña temporal:
+        {password_temporal}
+
+        Una vez ingrese al sistema le recomendamos cambiarla inmediatamente.
+
+        Si usted no solicitó este cambio comuníquese con el administrador.
+
+        Equipo VivaAP
+        """
+
+                mail.send(msg)
+                print("CONTRASEÑA TEMPORAL:", password_temporal)
+
+            except Exception as e:
+
+                print("ERROR RECUPERAR PASSWORD:", e)
+
+                flash("Ocurrió un error al generar la contraseña temporal.")
+
+                return redirect(url_for("recuperar_password"))
+
+        flash("Si el correo existe en el sistema, recibirá una contraseña temporal para ingresar a VivaAP.")
+
+        return redirect(url_for("login"))
+
+    return render_template("recuperar_password.html")  
+
+@app.route("/cambiar_password_temporal", methods=["GET","POST"])
+@login_required
+def cambiar_password_temporal():
+    from usuarios_sharepoint import buscar_usuario_por_id
+
+    usuario = buscar_usuario_por_id(current_user.id)
+
+    if not usuario.get("password_temporal"):
+
+        return redirect(url_for("panel"))
+    if request.method == "POST":
+
+        nueva = request.form["password"]
+
+        confirmar = request.form["confirmar"]
+
+        if nueva != confirmar:
+
+            flash("Las contraseñas no coinciden.")
+
+            return redirect(
+                url_for("cambiar_password_temporal")
+            )
+        
+        # Validaciones de seguridad
+        if len(nueva) < 8:
+            flash("La contraseña debe tener mínimo 8 caracteres.")
+            return redirect(url_for("cambiar_password_temporal"))
+
+        if not re.search(r"[A-Z]", nueva):
+            flash("La contraseña debe contener al menos una letra mayúscula.")
+            return redirect(url_for("cambiar_password_temporal"))
+
+        if not re.search(r"[0-9]", nueva):
+            flash("La contraseña debe contener al menos un número.")
+            return redirect(url_for("cambiar_password_temporal"))
+
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', nueva):
+            flash("La contraseña debe contener al menos un carácter especial.")
+            return redirect(url_for("cambiar_password_temporal"))
+
+        password_hash = generate_password_hash(nueva)
+
+        from usuarios_sharepoint import actualizar_password_definitiva
+
+        actualizar_password_definitiva(
+            current_user.id,
+            password_hash
+        )
+
+        logout_user()
+
+        flash("Contraseña actualizada correctamente. Inicie sesión con su nueva contraseña.")
+
+        return redirect(url_for("login"))
+
+    return render_template("cambiar_password.html")
 
 @app.route('/crear_usuario', methods=['GET','POST'])
 @login_required
 def crear_usuario():
-    # Solo internos pueden crear usuarios
+
     if current_user.rol not in ["interno", "admin"]:
         abort(403)
 
     if request.method == 'POST':
-        username = request.form['username']
+
+        username = request.form['username'].strip()
+        nombre = request.form['nombre'].strip()
+        correo = request.form['correo'].strip().lower()
         password = request.form['password']
-        nombre = request.form['nombre']
         rol = request.form['rol']
+
+        # Validar usuario existente
+        if buscar_usuario(username):
+            flash("El nombre de usuario ya existe.")
+            return render_template("crear_usuario.html")
+
+        # Validar correo existente
+        if buscar_usuario_por_correo(correo):
+            flash("El correo ya se encuentra registrado.")
+            return render_template("crear_usuario.html")
 
         password_hash = generate_password_hash(password)
 
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO usuarios (username, password_hash, nombre_completo, rol, activo, fecha_creacion)
-            VALUES (%s, %s, %s, %s, TRUE, NOW())
-        """, (username, password_hash, nombre, rol))
+        datos = {
+            "Username": username,
+            "NombreCompleto": nombre,
+            "Correo": correo,
+            "Rol": rol,
+            "Activo": True,
+            "PasswordHash": password_hash,
+            "FechaCreacion": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        }
 
+        crear_item_sharepoint(LISTA_USUARIOS_ID, datos)
 
-        conn.commit()
-        conn.close()
-        
         flash("Usuario creado correctamente")
         return redirect('/panel')
 
@@ -156,12 +333,12 @@ def logout():
 @login_required
 def home():
     return redirect(url_for('panel'))
+
 @app.route('/exportar_excel')
 @login_required
 def exportar_excel():
 
-    conn = get_db()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    from sharepoint_service import obtener_solicitudes
 
     estado = request.args.get("estado")
     usuario = request.args.get("usuario")
@@ -169,70 +346,128 @@ def exportar_excel():
     fecha_inicio = request.args.get("fecha_inicio")
     fecha_fin = request.args.get("fecha_fin")
 
-    query = """
-        SELECT 
-            s.radicado,
-            s.razon_social,
-            s.nombre_remitente,
-            s.tipo_solicitud,
-            s.estado,
-            u.nombre_completo AS asignado,
-            s.fecha_creacion,
-            s.fecha_cierre,
-            COALESCE(s.fecha_cierre, NOW()) - s.fecha_creacion AS tiempo_resolucion
-        FROM solicitudes s
-        LEFT JOIN usuarios u ON s.asignado_a = u.id
-        WHERE 1=1
-    """
+    solicitudes = obtener_solicitudes()
 
-    params = []
+    # Filtrar por rol
+
+    if current_user.rol == "interno":
+        solicitudes = [
+            s for s in solicitudes
+            if s["asignado_a"] == str(current_user.id)
+        ]
+
+    elif current_user.rol == "externo":
+        solicitudes = [
+            s for s in solicitudes
+            if s["creado_por"] == str(current_user.id)
+        ]
+    # Filtro estado
 
     if estado:
-        query += " AND s.estado = %s"
-        params.append(estado)
+        solicitudes = [
+            s for s in solicitudes
+            if s.get("estado") == estado
+        ]
+    # Filtro usuario
 
     if usuario:
-        query += " AND s.asignado_a = %s"
-        params.append(usuario)
-
-    if q:
-        query += """
-        AND (
-            CAST(s.radicado AS TEXT) ILIKE %s OR
-            s.razon_social ILIKE %s OR
-            s.nombre_remitente ILIKE %s OR
-            s.tipo_solicitud ILIKE %s
-        )
-        """
-        params.extend([f"%{q}%"] * 4)
-
+        solicitudes = [
+            s for s in solicitudes
+            if str(s.get("asignado_a")) == str(usuario)
+        ]
+    # Filtro por fechas
     if fecha_inicio:
-        query += " AND DATE(s.fecha_creacion) >= %s"
-        params.append(fecha_inicio)
+        fecha_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
+
+        solicitudes = [
+            s for s in solicitudes
+            if s.get("fecha_creacion")
+            and s["fecha_creacion"].date() >= fecha_ini
+        ]
 
     if fecha_fin:
-        query += " AND DATE(s.fecha_creacion) <= %s"
-        params.append(fecha_fin)
+        fecha_fin_dt = datetime.strptime(fecha_fin, "%Y-%m-%d").date()
 
-    query += " ORDER BY s.id DESC"
+        solicitudes = [
+            s for s in solicitudes
+            if s.get("fecha_creacion")
+            and s["fecha_creacion"].date() <= fecha_fin_dt
+        ]
 
-    cursor.execute(query, params)
-    data = cursor.fetchall()
-    conn.close()
+    # Filtro búsqueda
 
-    # 🔴 Si no hay datos, evitar error
-    if not data:
-        flash("No hay datos para exportar con esos filtros")
+    if q:
+
+        q = q.lower()
+
+        solicitudes = [
+
+            s for s in solicitudes
+
+            if q in str(s.get("radicado", "")).lower()
+            or q in str(s.get("razon_social", "")).lower()
+            or q in str(s.get("nombre_remitente", "")).lower()
+            or q in str(s.get("tipo_solicitud", "")).lower()
+
+        ]
+
+    if not solicitudes:
+
+        flash("No hay datos para exportar")
         return redirect(url_for('panel'))
 
-    df = pd.DataFrame(data)
+    datos_excel = []
 
-    # 👉 convertir tiempo a texto (para que Excel lo entienda mejor)
-    if 'tiempo_resolucion' in df.columns:
-        df['tiempo_resolucion'] = df['tiempo_resolucion'].astype(str)
+    for s in solicitudes:
+
+        usuario = obtener_usuario_por_id(
+            s.get("asignado_a")
+        )
+
+        nombre_asignado = ""
+
+        if usuario:
+            nombre_asignado = usuario.get(
+                "nombre_completo"
+            )
+
+        datos_excel.append({
+
+            "Radicado": s.get("radicado"),
+            "Empresa": s.get("razon_social"),
+            "Solicitante": s.get("nombre_remitente"),
+            "Tipo Solicitud": s.get("tipo_solicitud"),
+            "Estado": s.get("estado"),
+            "Asignado A": nombre_asignado,
+            "Fecha Creación": s.get("fecha_creacion"),
+            "Fecha Cierre": s.get("fecha_cierre")
+
+        })
+
+    df = pd.DataFrame(datos_excel)
+
+    # Quitar timezone para Excel
+
+    if 'Fecha Creación' in df.columns:
+        df['Fecha Creación'] = pd.to_datetime(
+            df['Fecha Creación'],
+            errors='coerce'
+        ).dt.tz_localize(None)
+
+    if 'Fecha Cierre' in df.columns:
+        df['Fecha Cierre'] = pd.to_datetime(
+            df['Fecha Cierre'],
+            errors='coerce'
+        ).dt.tz_localize(None)
 
     output = BytesIO()
-    df.to_excel(output, index=False)
+
+    df.to_excel(
+        output,
+        index=False,
+        engine="openpyxl"
+    )
+
     output.seek(0)
 
     return send_file(
@@ -240,12 +475,11 @@ def exportar_excel():
         download_name="reporte_solicitudes.xlsx",
         as_attachment=True
     )
+
 # PANEL
 @app.route('/panel')
 @login_required
 def panel():
-    conn = get_db()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     estado_filtro = request.args.get("estado")
     usuario_filtro = request.args.get("usuario")
     fecha_inicio = request.args.get("fecha_inicio")
@@ -254,416 +488,271 @@ def panel():
     q = request.args.get("q")
     per_page = 7
     offset = (page - 1) * per_page
-    
-# 🔹 TRAER SIEMPRE LOS USUARIOS INTERNOS (para el select "Asignar a")
-    cursor.execute("""
-        SELECT id, nombre_completo
-        FROM usuarios
-        WHERE rol = 'interno'
-        AND activo = TRUE
-        ORDER BY nombre_completo
-    """)
-    empleados = cursor.fetchall()
-    cursor.execute("""
-        SELECT DISTINCT razon_social 
-        FROM solicitudes
-        ORDER BY razon_social
-    """)
-    empresas = cursor.fetchall()
 
-    # 🔴 ADMIN VE TODO
-    if current_user.rol == "admin":
+    # 👇 AQUÍ VA LO NUEVO (SharePoint)
+    from sharepoint_service import obtener_solicitudes, contar_solicitudes
 
-        query = """
-            SELECT s.*, u.nombre_completo AS asignado_nombre
-            FROM solicitudes s
-            LEFT JOIN usuarios u ON s.asignado_a = u.id
-            WHERE 1=1
-        """
-        params = []
+    all_solicitudes = obtener_solicitudes()
+    solicitudes = all_solicitudes
 
-        if estado_filtro:
-            query += " AND s.estado = %s"
-            params.append(estado_filtro)
-        
-        if usuario_filtro:
-            query += " AND s.asignado_a = %s"
-            params.append(usuario_filtro)
-        if q:
-            query += """
-            AND (
-                CAST(s.radicado AS TEXT) ILIKE %s OR
-                s.razon_social ILIKE %s OR
-                s.nombre_remitente ILIKE %s OR
-                s.tipo_solicitud ILIKE %s
-            )
-            """
-            params.extend([f"%{q}%"] * 4)
-        if fecha_inicio:
-            query += " AND DATE(s.fecha_creacion) >= %s"
-            params.append(fecha_inicio)
+    if current_user.rol == "interno":
+        solicitudes = [s for s in solicitudes if s["asignado_a"] == str(current_user.id)]
 
-        if fecha_fin:
-            query += " AND DATE(s.fecha_creacion) <= %s"
-            params.append(fecha_fin)
+    elif current_user.rol == "externo":
+        solicitudes = [s for s in solicitudes if s["creado_por"] == str(current_user.id)]
 
-        query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
-        params.extend([per_page, offset])
+    if estado_filtro:
+        solicitudes = [s for s in solicitudes if s.get("estado") == estado_filtro]
 
-        cursor.execute(query, params)
+    if q:
+        q = q.lower()
+        solicitudes = [
+            s for s in solicitudes
+            if q in str(s.get("radicado", "")).lower()
+            or q in str(s.get("razon_social", "")).lower()
+            or q in str(s.get("nombre_remitente", "")).lower()
+            or q in str(s.get("tipo_solicitud", "")).lower()
+        ]
+    # Filtro por usuario asignado
+    if usuario_filtro:
+        solicitudes = [
+            s for s in solicitudes
+            if str(s.get("asignado_a")) == str(usuario_filtro)
+        ]
 
-        solicitudes = cursor.fetchall()
-        tiene_siguiente = len(solicitudes) == per_page
+    # Filtro por rango de fechas
+    if fecha_inicio:
+        fecha_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
 
-        cursor.execute("SELECT COUNT(*) FROM solicitudes")
-        total = cursor.fetchone()['count']
+        solicitudes = [
+            s for s in solicitudes
+            if s.get("fecha_creacion")
+            and s["fecha_creacion"].date() >= fecha_ini
+        ]
 
-        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Pendiente'")
-        pendientes = cursor.fetchone()['count']
+    if fecha_fin:
+        fecha_fin_dt = datetime.strptime(fecha_fin, "%Y-%m-%d").date()
 
-        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='En proceso'")
-        proceso = cursor.fetchone()['count']
+        solicitudes = [
+            s for s in solicitudes
+            if s.get("fecha_creacion")
+            and s["fecha_creacion"].date() <= fecha_fin_dt
+        ]
 
-        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Resuelto'")
-        resueltos = cursor.fetchone()['count']
+    # Datos temporales mientras terminamos la migración
 
-        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Cerrado'")
-        cerrados = cursor.fetchone()['count']
+    from sharepoint_service import obtener_usuarios_internos
+    empleados = obtener_usuarios_internos()
+    empresas = []
 
-    # 🔵 INTERNO SOLO VE LO ASIGNADO A ÉL
-    elif current_user.rol == "interno":
+    total = len(solicitudes)
 
-        query = """
-            SELECT s.*, u.nombre_completo AS asignado_nombre
-            FROM solicitudes s
-            LEFT JOIN usuarios u ON s.asignado_a = u.id
-            WHERE s.asignado_a = %s
-        """
-        params = [current_user.id]
+    pendientes = len([s for s in solicitudes if s.get("estado") == "Pendiente"])
+    proceso = len([s for s in solicitudes if s.get("estado") == "En proceso"])
+    resueltos = len([s for s in solicitudes if s.get("estado") == "Resuelto"])
+    cerrados = len([s for s in solicitudes if s.get("estado") == "Cerrado"])
 
-        if estado_filtro:
-            query += " AND s.estado = %s"
-            params.append(estado_filtro)
-        if usuario_filtro:
-            query += " AND s.asignado_a = %s"
-            params.append(usuario_filtro)
-        
-        if q:
-            query += """
-            AND (
-                CAST(s.radicado AS TEXT) ILIKE %s OR
-                s.razon_social ILIKE %s OR
-                s.nombre_remitente ILIKE %s OR
-                s.tipo_solicitud ILIKE %s
-            )
-            """
-            params.extend([f"%{q}%"] * 4)
-        if fecha_inicio:
-            query += " AND DATE(s.fecha_creacion) >= %s"
-            params.append(fecha_inicio)
+    inicio = offset
+    fin = offset + per_page
 
-        if fecha_fin:
-            query += " AND DATE(s.fecha_creacion) <= %s"
-            params.append(fecha_fin)
-        
-        query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
-        params.extend([per_page, offset])
+    total_registros = len(solicitudes)
+    total_paginas = (total_registros + per_page - 1) // per_page
 
-        cursor.execute(query, params)
-        solicitudes = cursor.fetchall()
-        tiene_siguiente = len(solicitudes) == per_page
+    tiene_siguiente = page < total_paginas
 
-        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE asignado_a=%s", (current_user.id,))
-        total = cursor.fetchone()['count']
+    # Determinar qué páginas mostrar
+    inicio_paginas = max(1, page - 2)
+    fin_paginas = min(total_paginas, inicio_paginas + 4)
 
-        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Pendiente' AND asignado_a=%s", (current_user.id,))
-        pendientes = cursor.fetchone()['count']
+    # Si estamos al final, completar hasta mostrar 5 páginas
+    inicio_paginas = max(1, fin_paginas - 4)
 
-        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='En proceso' AND asignado_a=%s", (current_user.id,))
-        proceso = cursor.fetchone()['count']
+    paginas = list(range(inicio_paginas, fin_paginas + 1))
 
-        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Resuelto' AND asignado_a=%s", (current_user.id,))
-        resueltos = cursor.fetchone()['count']
-
-        cursor.execute("SELECT COUNT(*) FROM solicitudes WHERE estado='Cerrado' AND asignado_a=%s", (current_user.id,))
-        cerrados = cursor.fetchone()['count']
-
-    # 🟢 EXTERNO SOLO VE LO QUE ÉL RADICÓ
-    else:
-
-        query = """
-            SELECT s.*, u.nombre_completo AS asignado_nombre
-            FROM solicitudes s
-            LEFT JOIN usuarios u ON s.asignado_a = u.id
-            WHERE s.creado_por = %s
-        """
-        params = [current_user.id]
-
-        if estado_filtro:
-            query += " AND s.estado = %s"
-            params.append(estado_filtro)
-        if usuario_filtro:
-            query += " AND s.asignado_a = %s"
-            params.append(usuario_filtro)
-        if q:
-            query += """
-            AND (
-                CAST(s.radicado AS TEXT) ILIKE %s OR
-                s.razon_social ILIKE %s OR
-                s.nombre_remitente ILIKE %s OR
-                s.tipo_solicitud ILIKE %s
-            )
-            """
-            params.extend([f"%{q}%"] * 4)
-        if fecha_inicio:
-            query += " AND DATE(s.fecha_creacion) >= %s"
-            params.append(fecha_inicio)
-
-        if fecha_fin:
-            query += " AND DATE(s.fecha_creacion) <= %s"
-            params.append(fecha_fin)
-       
-        query += " ORDER BY s.id DESC LIMIT %s OFFSET %s"
-        params.extend([per_page, offset])
-
-        cursor.execute(query, params)
-        solicitudes = cursor.fetchall()
-        tiene_siguiente = len(solicitudes) == per_page
-
-                # 🔹 TOTAL
-        cursor.execute("""
-            SELECT COUNT(*) FROM solicitudes 
-            WHERE creado_por = %s
-        """, (current_user.id,))
-        total = cursor.fetchone()['count']
-
-        # 🔹 PENDIENTES
-        cursor.execute("""
-            SELECT COUNT(*) FROM solicitudes 
-            WHERE creado_por = %s AND estado = 'Pendiente'
-        """, (current_user.id,))
-        pendientes = cursor.fetchone()['count']
-
-        # 🔹 EN PROCESO
-        cursor.execute("""
-            SELECT COUNT(*) FROM solicitudes 
-            WHERE creado_por = %s AND estado = 'En proceso'
-        """, (current_user.id,))
-        proceso = cursor.fetchone()['count']
-
-        # 🔹 RESUELTOS
-        cursor.execute("""
-            SELECT COUNT(*) FROM solicitudes 
-            WHERE creado_por = %s AND estado = 'Resuelto'
-        """, (current_user.id,))
-        resueltos = cursor.fetchone()['count']
-
-        # 🔹 CERRADOS
-        cursor.execute("""
-            SELECT COUNT(*) FROM solicitudes 
-            WHERE creado_por = %s AND estado = 'Cerrado'
-        """, (current_user.id,))
-        cerrados = cursor.fetchone()['count']
-
-    conn.close()
+    solicitudes = solicitudes[inicio:fin]
 
     return render_template(
-        'panel.html',
-        solicitudes=solicitudes,
-        total=total,
-        pendientes=pendientes,
-        proceso=proceso,
-        resueltos=resueltos,
-        cerrados=cerrados,
-        empleados=empleados,
-        empresas=empresas,
-        page=page,
-        tiene_siguiente=tiene_siguiente
+            'panel.html',
+            solicitudes=solicitudes,
+            total=total,
+            pendientes=pendientes,
+            proceso=proceso,
+            resueltos=resueltos,
+            cerrados=cerrados,
+            empleados=empleados,
+            empresas=empresas,
+            page=page,
+            tiene_siguiente=tiene_siguiente,
+            total_paginas=total_paginas,
+            paginas=paginas
     )
+
 @app.route('/reasignar/<int:id>/<int:usuario_id>')
 @login_required
 def reasignar(id, usuario_id):
-    if current_user.rol != "admin":
-        return redirect('/panel')  # seguridad
 
-    conn = get_db()
-    cursor = conn.cursor()
+    volver = request.args.get("next", url_for("panel"))
 
-    cursor.execute("""
-        UPDATE solicitudes
-        SET asignado_a = %s
-        WHERE id = %s
-    """, (usuario_id, id))
+    if current_user.rol not in ["admin", "interno"]:
+        return redirect(volver)
 
-    conn.commit()
-    conn.close()
+    usuario = obtener_usuario_por_id(usuario_id)
 
-    return redirect('/panel')
+    if not usuario:
+        flash("Usuario no encontrado")
+        return redirect(volver)
+
+    actualizar_item_sharepoint(
+        LISTA_SOLICITUDES_ID,
+        id,
+        {
+            "AsignadoA": usuario["id"]
+        }
+    )
+
+    flash("Solicitud reasignada correctamente")
+
+    return redirect(volver)
 
 # ruta para ver el caso
-@app.route('/solicitud/<int:id>')
+@app.route('/solicitud/<id>')
 @login_required
 def ver_solicitud(id):
 
-    conn = get_db()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    from sharepoint_service import (
+        obtener_solicitud_por_id,
+        obtener_adjuntos_solicitud
+    )
 
-    cursor.execute("""
-        SELECT s.*, u.nombre_completo AS asignado_nombre
-        FROM solicitudes s
-        LEFT JOIN usuarios u ON s.asignado_a = u.id
-        WHERE s.id = %s
-    """, (id,))
+    solicitud = obtener_solicitud_por_id(id)
 
-    solicitud = cursor.fetchone()
+    archivos = obtener_adjuntos_solicitud(
+        solicitud["radicado"]
+    )
 
-    cursor.execute("""
-        SELECT *
-        FROM archivos
-        WHERE solicitud_id = %s
-    """, (id,))
-
-    archivos = cursor.fetchall()
-
-    conn.close()
+    # URL desde donde llegó el usuario
+    volver = request.args.get(
+        "next",
+        url_for("panel")
+    )
 
     return render_template(
         "detalle_solicitud.html",
         solicitud=solicitud,
-        archivos=archivos
+        archivos=archivos,
+        volver=volver
     )
 
-@app.route('/descargar/<int:id>')
+@app.route('/adjuntar_archivos/<id>', methods=['POST'])
 @login_required
-def descargar_archivo(id):
+def adjuntar_archivos(id):
+    volver = request.form.get("next", url_for("panel"))
 
-    conn = get_db()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-    cursor.execute("""
-        SELECT nombre_archivo, tipo_archivo, archivo
-        FROM archivos
-        WHERE id = %s
-    """, (id,))
-
-    archivo = cursor.fetchone()
-    conn.close()
-
-    if not archivo:
-        abort(404)
-
-    from io import BytesIO
-
-    return send_file(
-        BytesIO(archivo['archivo']),
-        download_name=archivo['nombre_archivo'],
-        mimetype=archivo['tipo_archivo'],
-        as_attachment=True
+    from sharepoint_service import (
+        obtener_solicitud_por_id,
+        subir_adjunto
     )
+
+    solicitud = obtener_solicitud_por_id(id)
+
+    archivos = request.files.getlist("archivos")
+
+    for archivo in archivos:
+
+        if archivo and archivo.filename:
+
+            try:
+                subir_adjunto(
+                    solicitud["radicado"],
+                    archivo
+                )
+
+            except Exception as e:
+                print("ERROR SUBIENDO:", e)
+
+    flash("Archivos agregados correctamente")
+
+    return redirect(url_for("ver_solicitud", id=id, next=volver))
+
 #ruta para eliminar los radicado.
 @app.route('/eliminar_solicitud/<int:id>')
 @login_required
 def eliminar_solicitud(id):
 
+    volver = request.args.get("next", url_for("panel"))
+
     if current_user.rol != "admin":
-        return "No autorizado", 403
+        return redirect(volver)
 
-    conn = get_db()
-    cursor = conn.cursor()
+    try:
 
-    cursor.execute("DELETE FROM solicitudes WHERE id = %s", (id,))
-    conn.commit()
+        eliminar_item_sharepoint(
+            LISTA_SOLICITUDES_ID,
+            id
+        )
 
-    cursor.close()
-    conn.close()
+        flash("Solicitud eliminada correctamente")
 
-    flash("Solicitud eliminada correctamente")
+    except Exception as e:
 
-    return redirect("/panel")
+        print(e)
 
+        flash("No fue posible eliminar la solicitud")
+
+    return redirect(volver)
 
 @app.route('/crear_solicitud', methods=['POST'])
 @login_required
 def crear_solicitud():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    # VALIDACIÓN SEGURA DE ASIGNADO_A
     try:
         asignado_a = int(request.form.get("asignado_a"))
     except (TypeError, ValueError):
         flash("Debe seleccionar un empleado válido")
-        conn.close()
         return redirect(url_for("panel"))
+    from sharepoint_service import (
+        obtener_siguiente_radicado,
+        crear_carpeta_radicado,
+        subir_adjunto
+    )
 
-
-    # Guardar solicitud en la base de datos
-    cursor.execute("""
-        INSERT INTO solicitudes
-        (razon_social, nombre_remitente, correo_contacto,
-        telefono_contacto, poliza, tipo_solicitud, descripcion, asignado_a, creado_por)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id
-    """,
-    (
-        request.form['razon_social'],
-        request.form['nombre_remitente'],
-        request.form['correo_contacto'],
-        request.form['telefono_contacto'],
-        request.form['poliza'],
-        request.form['tipo_solicitud'],
-        request.form['descripcion'],
-        asignado_a,
-        current_user.id
-    ))
-
-
-    nuevo_id = cursor.fetchone()[0]
-
-    # Crear radicado
-    radicado = f"RAD-{nuevo_id:05d}"
-    cursor.execute("UPDATE solicitudes SET radicado = %s WHERE id = %s", (radicado, nuevo_id))
-    
-    # --- Crear mensaje
-    
+    radicado = obtener_siguiente_radicado()
+        # Crear mensaje de correo
     msg = MIMEMultipart()
+
     msg['From'] = app.config['MAIL_USERNAME']
-    msg['To'] = "tecnologiasvisuales940@gmail.com, lider.estrategia@vivasegurosltda.com.co"
-    msg['Subject'] = f"{radicado} - {request.form['tipo_solicitud']} - Póliza {request.form['poliza']}"
+    msg['To'] = (
+        "tecnologiasvisuales940@gmail.com,"
+        "lider.estrategia@vivasegurosltda.com.co"
+    )
 
-    # Cuerpo del correo con UTF-8
+    msg['Subject'] = (
+        f"{radicado} - "
+        f"{request.form['tipo_solicitud']} - "
+        f"Póliza {request.form['poliza']}"
+    )
+
     cuerpo = f"""
-NUEVA SOLICITUD RADICADA
+    NUEVA SOLICITUD RADICADA
 
-Radicado: {radicado}
-Razón Social: {request.form['razon_social']}
-Nombre: {request.form['nombre_remitente']}
-Correo: {request.form['correo_contacto']}
-Teléfono: {request.form['telefono_contacto']}
-Póliza: {request.form['poliza']}
-Tipo: {request.form['tipo_solicitud']}
+    Radicado: {radicado}
 
-Descripción:
-{request.form['descripcion']}
-"""
-    msg.attach(MIMEText(cuerpo, 'plain', 'utf-8'))
+    Razón Social: {request.form['razon_social']}
+    Nombre: {request.form['nombre_remitente']}
+    Correo: {request.form['correo_contacto']}
+    Teléfono: {request.form['telefono_contacto']}
+    Póliza: {request.form['poliza']}
+    Tipo: {request.form['tipo_solicitud']}
 
-    # Adjuntar múltiples archivos
-    for archivo in request.files.getlist('archivos'):
-        if archivo and archivo.filename:
-            nombre = secure_filename(archivo.filename)
-            tipo = archivo.content_type
-            contenido = archivo.read()
-            cursor.execute("""
-                INSERT INTO archivos (solicitud_id, nombre_archivo, tipo_archivo, archivo)
-                VALUES (%s,%s,%s,%s)
-            """, (nuevo_id, nombre, tipo, contenido))
+    Descripción:
+    {request.form['descripcion']}
+    """
 
-    conn.commit()
-    conn.close()
+    msg.attach(
+        MIMEText(cuerpo, 'plain', 'utf-8')
+    )
     try:
 
-        crear_solicitud_sharepoint(
+        status, item_id = crear_solicitud_sharepoint(
             radicado=radicado,
             razon_social=request.form['razon_social'],
             nombre_remitente=request.form['nombre_remitente'],
@@ -675,8 +764,24 @@ Descripción:
             asignado_a=str(asignado_a),
             creado_por=str(current_user.id)
         )
+        # Crear carpeta del radicado
+        crear_carpeta_radicado(radicado)
 
-        print("Solicitud enviada a SharePoint correctamente")
+        print("STATUS SHAREPOINT:", status)
+
+        from sharepoint_service import subir_adjunto
+
+        archivos = request.files.getlist("archivos")
+
+        for archivo in archivos:
+
+            if archivo and archivo.filename:
+
+                try:
+                    subir_adjunto(radicado, archivo)
+
+                except Exception as e:
+                    print("ERROR SUBIENDO ARCHIVO:", e)
 
     except Exception as e:
         print("ERROR SHAREPOINT:", e)
@@ -695,30 +800,116 @@ Descripción:
     flash(f"Solicitud enviada correctamente. Radicado: {radicado}")
     return redirect(url_for('panel'))
 
-
 # CAMBIAR ESTADO
-@app.route('/estado/<int:id>/<estado>')
+@app.route('/estado/<id>/<estado>')
 @login_required
-@solo_internos   # 🔒 SOLO INTERNOS PUEDEN CAMBIAR ESTADO
+@solo_internos
 def estado(id, estado):
-    conn = get_db()
-    cur = conn.cursor()
+    volver = request.args.get("next", url_for("panel"))
 
-    cur.execute("""
-        UPDATE solicitudes 
-        SET estado=%s, atendido_por=%s 
-        WHERE id=%s
-    """, (estado, current_user.username, id))
+    from sharepoint_service import actualizar_estado_solicitud
 
+    try:
 
-    if estado == "Cerrado":
-        cur.execute("UPDATE solicitudes SET fecha_cierre=NOW() WHERE id=%s", (id,))
+        actualizar_estado_solicitud(
+            item_id=id,
+            nuevo_estado=estado,
+            atendido_por=current_user.username
+        )
 
-    conn.commit()
-    conn.close()
-    return redirect('/panel')
+        flash("Estado actualizado correctamente")
+
+    except Exception as e:
+        print("ERROR ACTUALIZANDO ESTADO:", e)
+        flash("No fue posible actualizar el estado")
+
+    return redirect(volver)
+
+@app.route('/resolver/<int:id>', methods=["POST"])
+@login_required
+@solo_internos
+def resolver_solicitud(id):
+
+    from sharepoint_service import (
+        obtener_solicitud_por_id,
+        subir_adjunto,
+        actualizar_estado_solicitud,
+        obtener_adjuntos_para_correo
+    )
+
+    respuesta = request.form.get("respuesta", "").strip()
+    sin_adjuntos = request.form.get("sinAdjuntos")
+    archivos = request.files.getlist("archivos")
+
+    # Validar que exista al menos un archivo o se marque la opción
+    if not sin_adjuntos:
+
+        archivos_validos = [a for a in archivos if a and a.filename]
+
+        if len(archivos_validos) == 0:
+
+            flash("Debe adjuntar al menos un archivo o marcar que la respuesta no requiere adjuntos.")
+
+            return redirect(url_for("ver_solicitud", id=id))
+
+    solicitud = obtener_solicitud_por_id(id)
+
+    # Subir archivos a SharePoint
+    if not sin_adjuntos:
+
+        for archivo in archivos:
+
+            if archivo and archivo.filename:
+
+                subir_adjunto(
+                    solicitud["radicado"],
+                    archivo
+                )
+
+    # Cambiar estado
+    actualizar_estado_solicitud(
+        item_id=id,
+        nuevo_estado="Resuelto",
+        atendido_por=current_user.username
+    )
+
+    # Crear correo
+    html = crear_html_resolucion(
+        solicitud,
+        respuesta
+    )
+
+    # Adjuntos para correo
+    if sin_adjuntos:
+        adjuntos = []
+    else:
+        adjuntos = obtener_adjuntos_para_correo(
+            solicitud["radicado"]
+        )
+
+    # Enviar correo
+    try:
+
+        enviar_correo_resolucion(
+            mail,
+            solicitud,
+            html,
+            adjuntos
+        )
+
+        flash("Solicitud resuelta y correo enviado correctamente.")
+
+    except Exception as e:
+
+        print("ERROR ENVIANDO CORREO:", e)
+
+        flash("La solicitud fue resuelta, pero ocurrió un error al enviar el correo.")
+
+    return redirect(url_for("ver_solicitud", id=id))
 
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
+    

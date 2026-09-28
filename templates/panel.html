@@ -63,7 +63,6 @@
 
     <h2> ¿Que Desea Radicar?</h2>
 
-
     <form method="POST" action="/crear_solicitud" enctype="multipart/form-data">
         <label>Agencia Intermediaria:</label>
         <input type="text" name="razon_social" required>
@@ -82,12 +81,15 @@
 
         <label>Tipo de Solicitud:</label>
         <select name="tipo_solicitud" required>
-    		<option value="Ingreso">Ingreso</option>
+    		<option value="Inclusión">Inclusión</option>
+            <option value="Emisión">Emisión</option>
     		<option value="Retiro">Retiro</option>
     		<option value="Cancelación">Cancelación</option>
     		<option value="Renovación">Renovación</option>
-    		<option value="Reclamación">Reclamación</option>
+    		<option value="Aviso de siniestro">Aviso de siniestro</option>
     		<option value="Modificación">Modificación</option>
+            <option value="Cotización">Cotización</option>
+            <option value="Cartera">Cartera</option>
     		<option value="Copia de documento">Copia de documento</option>
     		<option value="Otro">Otro</option>
 	</select>
@@ -99,7 +101,6 @@
         	    <option value="{{ e.id }}">{{ e.nombre_completo }}</option>
     		{% endfor %}
 	</select>
-
 
         <label>Descripción:</label>
         <textarea name="descripcion"></textarea>
@@ -243,27 +244,29 @@
         {% for s in solicitudes %}
         <tr>
             <td>
-    		<a href="{{ url_for('ver_solicitud', id=s.id) }}">
-        	    {{ s.radicado }}
-    		</a>
+    		<a href="{{ url_for('ver_solicitud', id=s.id, next=request.full_path) }}">
+          {{ s.radicado }}
+      </a>
 	    </td>
             <td>{{ s.razon_social }}</td>
             <td>{{ s.nombre_remitente }}</td>
             <td>{{ s.tipo_solicitud }}</td>
 	    <td>
-	    {% if current_user.rol == "admin" %}
-    		<select onchange="cambiarAsignado(this, {{ s.id }})">
-        	    <option value="">Sin asignar</option>
-        	    {% for e in empleados %}
-            		<option value="{{ e.id }}"
-                	   {% if s.asignado_a == e.id %}selected{% endif %}>
-                	    {{ e.nombre_completo }}
-            		</option>
-        	    {% endfor %}
-    		</select>
-	    {% else %}
-    		{{ s.asignado_nombre }}
-	    {% endif %}
+	    {% if current_user.rol in ["interno", "admin"] %}
+          <select onchange="cambiarAsignado(this, {{ s.id }})">
+              <option value="">Sin asignar</option>
+
+              {% for e in empleados %}
+                  <option value="{{ e.id }}"
+                      {% if s.asignado_a|string == e.id|string %}selected{% endif %}>
+                      {{ e.nombre_completo }}
+                  </option>
+              {% endfor %}
+
+          </select>
+      {% else %}
+          {{ s.asignado_nombre }}
+      {% endif %}
 	    </td>
             <td>
 
@@ -313,31 +316,106 @@
 	    </td>
 	    {% if current_user.rol == "admin" %}
     	    <td>
-            	<a href="{{ url_for('eliminar_solicitud', id=s.id) }}"
-           	    onclick="return confirm('¿Seguro que desea eliminar este radicado?')">
+            	<a href="{{ url_for('eliminar_solicitud', id=s.id, next=request.full_path) }}"
+                onclick="return confirm('¿Seguro que desea eliminar este radicado?')">
             		<button style="background:#c0392b;">Eliminar</button>
         	</a>
     	    </td>
     	    {% endif %}
-
 	</tr>
 
         {% endfor %}
     </table>
-    <div style="margin-top:20px; text-align:center;">
+    <div style="margin-top:20px; display:flex; justify-content:center; align-items:center; gap:8px; flex-wrap:wrap;">
 
-    {% if page > 1 %}
-        <a href="{{ url_for('panel', page=page-1, estado=request.args.get('estado'), q=request.args.get('q'), usuario=request.args.get('usuario')) }}">
-            <button>⬅ Anterior</button>
-        </a>
-    {% endif %}
+      {% if page > 1 %}
+      <a href="{{ url_for('panel',
+          page=page-1,
+          estado=request.args.get('estado'),
+          usuario=request.args.get('usuario'),
+          q=request.args.get('q'),
+          fecha_inicio=request.args.get('fecha_inicio'),
+          fecha_fin=request.args.get('fecha_fin')) }}"
+      style="
+      text-decoration:none;
+      font-weight:600;
+      color:#195d72;
+      padding:6px 8px;
+      ">
+      ⬅ Anterior
+      </a>
+      {% endif %}
 
-    {% if tiene_siguiente %}
-        <a href="{{ url_for('panel', page=page+1, estado=request.args.get('estado'), q=request.args.get('q'), usuario=request.args.get('usuario')) }}">
-            <button>Siguiente ➡</button>
-        </a>
-    {% endif %}
-</div>
+      {% for p in paginas %}
+
+          {% if p == page %}
+<span
+style="
+display:inline-flex;
+align-items:center;
+justify-content:center;
+width:34px;
+height:34px;
+border-radius:50%;
+background:#095e6d;
+color:white;
+font-weight:bold;
+font-size:15px;
+">
+{{ p }}
+</span>
+
+{% else %}
+
+<a
+href="{{ url_for('panel',
+page=p,
+estado=request.args.get('estado'),
+usuario=request.args.get('usuario'),
+q=request.args.get('q'),
+fecha_inicio=request.args.get('fecha_inicio'),
+fecha_fin=request.args.get('fecha_fin')) }}"
+
+style="
+display:inline-flex;
+align-items:center;
+justify-content:center;
+width:34px;
+height:34px;
+border-radius:50%;
+text-decoration:none;
+color:#555;
+font-weight:600;
+transition:.2s;
+">
+
+{{ p }}
+
+</a>
+
+{% endif %}
+
+      {% endfor %}
+
+      {% if tiene_siguiente %}
+      <a href="{{ url_for('panel',
+          page=page+1,
+          estado=request.args.get('estado'),
+          usuario=request.args.get('usuario'),
+          q=request.args.get('q'),
+          fecha_inicio=request.args.get('fecha_inicio'),
+          fecha_fin=request.args.get('fecha_fin')) }}"
+      style="
+      text-decoration:none;
+      font-weight:600;
+      color:#195d72;
+      padding:6px 8px;
+      ">
+      Siguiente ➡
+      </a>
+      {% endif %}
+
+  </div>
 <script>
 function cerrarModal() {
     document.getElementById("alertModal").style.display = "none";
@@ -346,19 +424,86 @@ function cerrarModal() {
 <script>
 function cambiarEstado(select, id) {
     const estado = select.value;
-    if (estado) {
-        window.location.href = "/estado/" + id + "/" + estado;
+    if (!estado) return;
+    if (estado === "Resuelto") {
+        document.getElementById("resolver_id").value = id;
+        document.getElementById("formResolver").action = "/resolver/" + id;
+        document.getElementById("modalResolver").style.display = "block";
+        return;
     }
+    window.location.href = "/estado/" + id + "/" + estado;
+}
+function cerrarModalResolver(){
+    document.getElementById("modalResolver").style.display = "none";
 }
 </script>
 <script>
-function cambiarAsignado(select, id) {
-    const usuario_id = select.value;
-
-    if (usuario_id) {
-        window.location.href = "/reasignar/" + id + "/" + usuario_id;
-    }
-}
+function cambiarAsignado(select,id){const usuario_id=select.value;if(usuario_id){window.location.href="/reasignar/"+id+"/"+usuario_id+"?next="+encodeURIComponent(window.location.pathname+window.location.search);}}
 </script>
+<!-- Modal Resolver Solicitud -->
+
+<div id="modalResolver" class="modal" style="display:none;">
+
+    <div class="modal-content" style="max-width:700px;">
+
+        <h2>Resolver Solicitud</h2>
+
+        <form id="formResolver" method="POST" enctype="multipart/form-data">
+
+            <input type="hidden" id="resolver_id" name="id">
+
+            <label>Respuesta para el cliente</label>
+
+            <textarea
+                name="respuesta"
+                rows="7"
+                style="width:100%;"
+                required></textarea>
+
+            <br><br>
+
+            <label>Adjuntar documentos</label>
+
+            <input
+                type="file"
+                name="archivos"
+                id="archivosRespuesta"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+
+            <br><br>
+
+            <label>
+
+                <input
+                  type="checkbox"
+                  id="sinAdjuntos"
+                  name="sinAdjuntos">
+
+                Esta respuesta no requiere archivos adjuntos.
+
+            </label>
+
+            <br><br>
+
+            <button type="submit">
+
+                Resolver
+
+            </button>
+
+            <button
+                type="button"
+                onclick="cerrarModalResolver()">
+
+                Cancelar
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
 </body>
 </html>

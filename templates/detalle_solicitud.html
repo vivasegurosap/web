@@ -8,6 +8,15 @@
 <body>
 
 <div class="container">
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+    {% for message in messages %}
+        <div class="flash-success" style="margin-bottom:20px;">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+{% endwith %}
 
 <h2>Radicado {{ solicitud.radicado }}</h2>
 
@@ -29,21 +38,56 @@
 {% if archivos %}
     <ul>
     {% for a in archivos %}
-        <li>
-            <a href="{{ url_for('descargar_archivo', id=a.id) }}">
-                {{ a.nombre_archivo }}
-            </a>
-        </li>
+    <li style="margin-bottom:8px;">
+
+        <a href="{{ a.url }}" target="_blank">
+            📄 {{ a.nombre_archivo }}
+        </a>
+
+        {% if a.fecha %}
+            <br>
+            <small style="color:#777;">
+                📅 Adjuntado:
+                {{ a.fecha.strftime('%d/%m/%Y %H:%M') }}
+            </small>
+        {% endif %}
+
+    </li>
     {% endfor %}
     </ul>
 {% else %}
-<p>No hay archivos adjuntos</p>
+    <p>No hay archivos adjuntos</p>
 {% endif %}
+<hr>
+
+<h3>Agregar más archivos</h3>
+
+<form method="POST"
+      action="{{ url_for('adjuntar_archivos', id=solicitud.id) }}"
+      enctype="multipart/form-data">
+
+    <input type="hidden" name="next" value="{{ volver }}">
+
+    <input
+        type="file"
+        name="archivos"
+        multiple
+        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+
+    <br><br>
+
+    <button type="submit">
+        Agregar archivos
+    </button>
+
+</form>
 
 <br>
 
-<a href="/panel">
-<button>⬅ Volver al panel</button>
+<a href="{{ volver }}">
+    <button type="button">
+        ⬅ Volver al panel
+    </button>
 </a>
 
 </div>

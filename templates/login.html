@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" 	rel="stylesheet">
 
+    
     <style>
         body {
             margin: 0;
@@ -251,8 +252,19 @@
         <img src="{{ url_for('static', filename='Logo.png') }}">
 
         <h2>Ingreso al sistema</h2>
-
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    {% if message != "modal_bienvenida" %}
+                        <p style="color:#d32f2f; font-weight:bold; margin-bottom:15px; text-align:center;">
+                            ⚠ {{ message }}
+                        </p>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
         <form method="POST">
+
             <input type="text" name="username" placeholder="Usuario" required>
 
             <div class="password-container">
@@ -261,6 +273,15 @@
             </div>
 
             <button type="submit">Ingresar</button>
+
+        </form>
+
+        <div style="margin-top:15px; text-align:center;">
+            <a href="{{ url_for('recuperar_password') }}"
+            style="color:#1F7A83; text-decoration:none; font-size:14px; font-weight:600;">
+                ¿Olvidó su contraseña?
+            </a>
+        </div>
         </form>
 
     </div>
