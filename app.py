@@ -1,16 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_mail import Mail, Message
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import random
-import smtplib
 import os
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 from functools import wraps
 from flask import abort
 from flask import send_file
@@ -23,12 +17,15 @@ from sharepoint_service import obtener_usuario_por_id
 from sharepoint_service import obtener_token
 from sharepoint_service import eliminar_item_sharepoint
 from sharepoint_service import actualizar_item_sharepoint
+from correo_service import (enviar_correo_nueva_solicitud, enviar_correo_recuperacion)
 from usuarios_sharepoint import (buscar_usuario_por_correo, actualizar_password_usuario, buscar_usuario)
 from correo_service import crear_html_resolucion, enviar_correo_resolucion
 from sharepoint_service import obtener_adjuntos_para_correo
 import secrets
 import string
 import re
+import requests
+import base64
 
 def solo_internos(f):
     @wraps(f)
@@ -48,16 +45,6 @@ LISTA_SOLICITUDES_ID = os.getenv("LIST_ID")
 ENV = os.environ.get("ENV", "dev") #se coloca por ahora para evitar el error cuando se envia el correo, dado que se cobra.
 #app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 #os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# CORREO
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'tecnologiasvisuales940@gmail.com'
-app.config['MAIL_PASSWORD'] = 'koavxwdwsdornvsv'
-app.config['MAIL_DEFAULT_SENDER'] = 'tecnologiasvisuales940@gmail.com'
-mail = Mail(app)
 
 # LOGIN
 login_manager = LoginManager()
@@ -179,31 +166,12 @@ def recuperar_password():
                     True
                 )
 
-                # Enviar correo
-                msg = Message(
-                    subject="Recuperación de contraseña - VivaAP",
-                    recipients=[correo]
+                enviar_correo_recuperacion(
+                    correo=correo,
+                    nombre=usuario["nombre_completo"],
+                    username=usuario["username"],
+                    password_temporal=password_temporal
                 )
-
-                msg.body = f"""
-        Hola {usuario['nombre_completo']},
-
-        Se generó una contraseña temporal para ingresar a VivaAP.
-
-        Usuario:
-        {usuario['username']}
-
-        Contraseña temporal:
-        {password_temporal}
-
-        Una vez ingrese al sistema le recomendamos cambiarla inmediatamente.
-
-        Si usted no solicitó este cambio comuníquese con el administrador.
-
-        Equipo VivaAP
-        """
-
-                mail.send(msg)
                 print("CONTRASEÑA TEMPORAL:", password_temporal)
 
             except Exception as e:
@@ -716,40 +684,7 @@ def crear_solicitud():
     )
 
     radicado = obtener_siguiente_radicado()
-        # Crear mensaje de correo
-    msg = MIMEMultipart()
-
-    msg['From'] = app.config['MAIL_USERNAME']
-    msg['To'] = (
-        "tecnologiasvisuales940@gmail.com,"
-        "lider.estrategia@vivasegurosltda.com.co"
-    )
-
-    msg['Subject'] = (
-        f"{radicado} - "
-        f"{request.form['tipo_solicitud']} - "
-        f"Póliza {request.form['poliza']}"
-    )
-
-    cuerpo = f"""
-    NUEVA SOLICITUD RADICADA
-
-    Radicado: {radicado}
-
-    Razón Social: {request.form['razon_social']}
-    Nombre: {request.form['nombre_remitente']}
-    Correo: {request.form['correo_contacto']}
-    Teléfono: {request.form['telefono_contacto']}
-    Póliza: {request.form['poliza']}
-    Tipo: {request.form['tipo_solicitud']}
-
-    Descripción:
-    {request.form['descripcion']}
-    """
-
-    msg.attach(
-        MIMEText(cuerpo, 'plain', 'utf-8')
-    )
+    
     try:
 
         status, item_id = crear_solicitud_sharepoint(
@@ -786,15 +721,25 @@ def crear_solicitud():
     except Exception as e:
         print("ERROR SHAREPOINT:", e)
 
-    # Enviar correo SIN romper el sistema
+    # Enviar correo mediante Microsoft Graph
     try:
-        if ENV != "prod":
-            with smtplib.SMTP('smtp.gmail.com', 587, timeout=5) as server:
-                server.starttls()
-                server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
-                server.send_message(msg)
+
+        enviar_correo_nueva_solicitud(
+            radicado=radicado,
+            razon_social=request.form['razon_social'],
+            nombre_remitente=request.form['nombre_remitente'],
+            correo_contacto=request.form['correo_contacto'],
+            telefono_contacto=request.form['telefono_contacto'],
+            poliza=request.form['poliza'],
+            tipo_solicitud=request.form['tipo_solicitud'],
+            descripcion=request.form['descripcion']
+        )
+
+        print("CORREO NUEVA SOLICITUD ENVIADO CORRECTAMENTE")
+
     except Exception as e:
-        print("Error enviando correo:", e)
+
+        print("ERROR ENVIANDO CORREO NUEVA SOLICITUD:", e)
 
     # ✅ ESTO SIEMPRE DEBE EJECUTARSE
     flash(f"Solicitud enviada correctamente. Radicado: {radicado}")
@@ -891,7 +836,6 @@ def resolver_solicitud(id):
     try:
 
         enviar_correo_resolucion(
-            mail,
             solicitud,
             html,
             adjuntos

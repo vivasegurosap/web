@@ -1,6 +1,8 @@
-from flask_mail import Message
-from flask import current_app
+import os
+import base64
+import requests
 from pathlib import Path
+from flask import current_app
 
 def crear_html_resolucion(solicitud, respuesta):
 
@@ -272,30 +274,438 @@ Por favor, no responda este mensaje de manera automática.
 </body>
 </html>
 """
-def enviar_correo_resolucion(mail, solicitud, html, adjuntos=None):
-    msg = Message(
-        subject=f"Respuesta a la solicitud {solicitud['radicado']}",
-        recipients=[solicitud["correo_contacto"]]
-    )
-    msg.html = html
+def enviar_correo_resolucion(solicitud, html, adjuntos=None):
 
-    # Logo embebido
-    logo = Path(current_app.root_path) / "static" / "VivaSeguros_Logo2025_Blanco.png"
-    with open(logo, "rb") as f:
-        msg.attach(
-            filename="VivaSeguros_Logo2025_Blanco.png",
-            content_type="image/png",
-            data=f.read(),
-            disposition="inline",
-            headers={
-                "Content-ID": "<logo_viva>"
-            }
+    tenant_id = os.getenv("TENANT_ID")
+    client_id = os.getenv("CLIENT_ID")
+    client_secret = os.getenv("CLIENT_SECRET")
+    correo_remitente = os.getenv("MAIL_USERNAME")
+
+    if not tenant_id:
+        raise Exception("Falta TENANT_ID en las variables de entorno.")
+
+    if not client_id:
+        raise Exception("Falta CLIENT_ID en las variables de entorno.")
+
+    if not client_secret:
+        raise Exception("Falta CLIENT_SECRET en las variables de entorno.")
+
+    if not correo_remitente:
+        raise Exception("Falta MAIL_USERNAME en las variables de entorno.")
+
+    # =========================================================
+    # 1. Obtener token de Microsoft Graph
+    # =========================================================
+
+    token_url = (
+        f"https://login.microsoftonline.com/"
+        f"{tenant_id}/oauth2/v2.0/token"
+    )
+
+    token_data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": "https://graph.microsoft.com/.default",
+        "grant_type": "client_credentials"
+    }
+
+    token_response = requests.post(
+        token_url,
+        data=token_data,
+        timeout=20
+    )
+
+    if token_response.status_code != 200:
+        raise Exception(
+            f"Error obteniendo token de Microsoft Graph: "
+            f"{token_response.status_code} - "
+            f"{token_response.text}"
         )
+
+    access_token = token_response.json()["access_token"]
+
+    # =========================================================
+    # 2. Preparar destinatario
+    # =========================================================
+
+    destinatario = solicitud["correo_contacto"]
+
+    if not destinatario:
+        raise Exception("La solicitud no tiene correo de contacto.")
+
+    # =========================================================
+    # 3. Logo embebido
+    # =========================================================
+
+    logo = (
+        Path(current_app.root_path)
+        / "static"
+        / "VivaSeguros_Logo2025_Blanco.png"
+    )
+
+    if not logo.exists():
+        raise Exception(
+            f"No se encontró el logo: {logo}"
+        )
+
+    with open(logo, "rb") as f:
+        logo_base64 = base64.b64encode(
+            f.read()
+        ).decode("utf-8")
+
+    # =========================================================
+    # 4. Crear adjuntos para Microsoft Graph
+    # =========================================================
+
+    attachments = [
+        {
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            "name": "VivaSeguros_Logo2025_Blanco.png",
+            "contentType": "image/png",
+            "contentBytes": logo_base64,
+            "isInline": True,
+            "contentId": "logo_viva"
+        }
+    ]
+
     if adjuntos:
+
         for archivo in adjuntos:
-            msg.attach(
-                archivo["nombre"],
-                archivo["mime"],
-                archivo["contenido"]
-            )
-    mail.send(msg)
+
+            contenido = archivo["contenido"]
+
+            attachments.append({
+                "@odata.type": "#microsoft.graph.fileAttachment",
+                "name": archivo["nombre"],
+                "contentType": archivo["mime"],
+                "contentBytes": base64.b64encode(
+                    contenido
+                ).decode("utf-8")
+            })
+
+    # =========================================================
+    # 5. Construir mensaje
+    # =========================================================
+
+    mensaje = {
+        "message": {
+            "subject": (
+                f"Respuesta a la solicitud "
+                f"{solicitud['radicado']}"
+            ),
+
+            "body": {
+                "contentType": "HTML",
+                "content": html
+            },
+
+            "toRecipients": [
+                {
+                    "emailAddress": {
+                        "address": destinatario
+                    }
+                }
+            ],
+
+            "attachments": attachments
+        },
+
+        "saveToSentItems": True
+    }
+
+    # =========================================================
+    # 6. Enviar mediante Microsoft Graph
+    # =========================================================
+
+    url = (
+        "https://graph.microsoft.com/v1.0/"
+        f"users/{correo_remitente}/sendMail"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(
+        url,
+        headers=headers,
+        json=mensaje,
+        timeout=30
+    )
+
+    if response.status_code not in (200, 202):
+        raise Exception(
+            f"Error enviando correo mediante Microsoft Graph: "
+            f"{response.status_code} - "
+            f"{response.text}"
+        )
+def enviar_correo_nueva_solicitud(
+    radicado,
+    razon_social,
+    nombre_remitente,
+    correo_contacto,
+    telefono_contacto,
+    poliza,
+    tipo_solicitud,
+    descripcion
+):
+
+    tenant_id = os.getenv("TENANT_ID")
+    client_id = os.getenv("CLIENT_ID")
+    client_secret = os.getenv("CLIENT_SECRET")
+
+    correo_remitente = os.getenv("MAIL_USERNAME")
+
+    if not tenant_id:
+        raise Exception("Falta TENANT_ID en las variables de entorno.")
+
+    if not client_id:
+        raise Exception("Falta CLIENT_ID en las variables de entorno.")
+
+    if not client_secret:
+        raise Exception("Falta CLIENT_SECRET en las variables de entorno.")
+
+    # =========================================================
+    # 1. Obtener token Microsoft Graph
+    # =========================================================
+
+    token_url = (
+        f"https://login.microsoftonline.com/"
+        f"{tenant_id}/oauth2/v2.0/token"
+    )
+
+    token_data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": "https://graph.microsoft.com/.default",
+        "grant_type": "client_credentials"
+    }
+
+    token_response = requests.post(
+        token_url,
+        data=token_data,
+        timeout=20
+    )
+
+    if token_response.status_code != 200:
+        raise Exception(
+            f"Error obteniendo token Microsoft Graph: "
+            f"{token_response.status_code} - "
+            f"{token_response.text}"
+        )
+
+    access_token = token_response.json()["access_token"]
+
+    # =========================================================
+    # 2. Destinatarios
+    # =========================================================
+
+    destinatarios = [
+        "tecnologiasvisuales940@gmail.com",
+        "lider.estrategia@vivasegurosltda.com.co"
+    ]
+
+    # =========================================================
+    # 3. Cuerpo del correo
+    # =========================================================
+
+    cuerpo = f"""
+    NUEVA SOLICITUD RADICADA
+
+    Radicado: {radicado}
+
+    Razón Social: {razon_social}
+    Nombre: {nombre_remitente}
+    Correo: {correo_contacto}
+    Teléfono: {telefono_contacto}
+    Póliza: {poliza}
+    Tipo: {tipo_solicitud}
+
+    Descripción:
+    {descripcion}
+    """
+
+    # =========================================================
+    # 4. Construir destinatarios Graph
+    # =========================================================
+
+    to_recipients = []
+
+    for correo in destinatarios:
+
+        to_recipients.append({
+            "emailAddress": {
+                "address": correo
+            }
+        })
+
+    # =========================================================
+    # 5. Construir mensaje
+    # =========================================================
+
+    mensaje = {
+        "message": {
+
+            "subject": (
+                f"{radicado} - "
+                f"{tipo_solicitud} - "
+                f"Póliza {poliza}"
+            ),
+
+            "body": {
+                "contentType": "Text",
+                "content": cuerpo
+            },
+
+            "toRecipients": to_recipients
+        },
+
+        "saveToSentItems": True
+    }
+
+    # =========================================================
+    # 6. Enviar mediante Microsoft Graph
+    # =========================================================
+
+    url = (
+        "https://graph.microsoft.com/v1.0/"
+        f"users/{correo_remitente}/sendMail"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(
+        url,
+        headers=headers,
+        json=mensaje,
+        timeout=30
+    )
+
+    if response.status_code not in (200, 202):
+
+        raise Exception(
+            f"Error enviando correo de nueva solicitud: "
+            f"{response.status_code} - "
+            f"{response.text}"
+        )
+def enviar_correo_recuperacion(
+    correo,
+    nombre,
+    username,
+    password_temporal
+):
+
+    tenant_id = os.getenv("TENANT_ID")
+    client_id = os.getenv("CLIENT_ID")
+    client_secret = os.getenv("CLIENT_SECRET")
+    correo_remitente = os.getenv("MAIL_USERNAME")
+
+    if not tenant_id:
+        raise Exception("Falta TENANT_ID en las variables de entorno.")
+
+    if not client_id:
+        raise Exception("Falta CLIENT_ID en las variables de entorno.")
+
+    if not client_secret:
+        raise Exception("Falta CLIENT_SECRET en las variables de entorno.")
+
+    if not correo_remitente:
+        raise Exception("Falta MAIL_USERNAME en las variables de entorno.")
+
+    # Obtener token Microsoft Graph
+
+    token_url = (
+        f"https://login.microsoftonline.com/"
+        f"{tenant_id}/oauth2/v2.0/token"
+    )
+
+    token_data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": "https://graph.microsoft.com/.default",
+        "grant_type": "client_credentials"
+    }
+
+    token_response = requests.post(
+        token_url,
+        data=token_data,
+        timeout=20
+    )
+
+    if token_response.status_code != 200:
+        raise Exception(
+            f"Error obteniendo token Microsoft Graph: "
+            f"{token_response.status_code} - "
+            f"{token_response.text}"
+        )
+
+    access_token = token_response.json()["access_token"]
+
+    # Contenido del correo
+
+    cuerpo = f"""
+Hola {nombre},
+
+Se generó una contraseña temporal para ingresar a VivaAP.
+
+Usuario:
+{username}
+
+Contraseña temporal:
+{password_temporal}
+
+Una vez ingrese al sistema le recomendamos cambiarla inmediatamente.
+
+Si usted no solicitó este cambio comuníquese con el administrador.
+
+Equipo VivaAP
+"""
+
+    mensaje = {
+        "message": {
+            "subject": "Recuperación de contraseña - VivaAP",
+
+            "body": {
+                "contentType": "Text",
+                "content": cuerpo
+            },
+
+            "toRecipients": [
+                {
+                    "emailAddress": {
+                        "address": correo
+                    }
+                }
+            ]
+        },
+
+        "saveToSentItems": True
+    }
+
+    url = (
+        "https://graph.microsoft.com/v1.0/"
+        f"users/{correo_remitente}/sendMail"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(
+        url,
+        headers=headers,
+        json=mensaje,
+        timeout=30
+    )
+
+    if response.status_code not in (200, 202):
+        raise Exception(
+            f"Error enviando correo de recuperación: "
+            f"{response.status_code} - "
+            f"{response.text}"
+        )
