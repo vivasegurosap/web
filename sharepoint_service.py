@@ -123,8 +123,9 @@ def contar_solicitudes():
     proceso = len([s for s in data if s.get("estado") == "En proceso"])
     resueltos = len([s for s in data if s.get("estado") == "Resuelto"])
     cerrados = len([s for s in data if s.get("estado") == "Cerrado"])
+    devueltos = len([s for s in data if s.get("estado") == "Devuelto"])
 
-    return total, pendientes, proceso, resueltos, cerrados
+    return total, pendientes, proceso, resueltos, cerrados, devueltos
 
 CONFIG_LIST_ID = os.getenv("CONFIG_LIST_ID")
 
@@ -264,7 +265,7 @@ def actualizar_estado_solicitud(item_id, nuevo_estado, atendido_por):
         "AtendidoPor": atendido_por
     }
 
-    if nuevo_estado in ["Resuelto", "Cerrado"]:
+    if nuevo_estado in ["Resuelto", "Rechazado"]:
         datos["FechaCierre"] = datetime.now().isoformat()
 
     url = (

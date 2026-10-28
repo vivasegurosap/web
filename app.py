@@ -19,7 +19,7 @@ from sharepoint_service import eliminar_item_sharepoint
 from sharepoint_service import actualizar_item_sharepoint
 from correo_service import (enviar_correo_nueva_solicitud, enviar_correo_recuperacion)
 from usuarios_sharepoint import (buscar_usuario_por_correo, actualizar_password_usuario, buscar_usuario)
-from correo_service import crear_html_resolucion, enviar_correo_resolucion
+from correo_service import (crear_html_resolucion, crear_html_devolucion, enviar_correo_resolucion)
 from sharepoint_service import obtener_adjuntos_para_correo
 import secrets
 import string
@@ -457,7 +457,7 @@ def panel():
     per_page = 7
     offset = (page - 1) * per_page
 
-    # 👇 AQUÍ VA LO NUEVO (SharePoint)
+    # AQUÍ VA LO NUEVO (SharePoint)
     from sharepoint_service import obtener_solicitudes, contar_solicitudes
 
     all_solicitudes = obtener_solicitudes()
@@ -518,7 +518,8 @@ def panel():
     pendientes = len([s for s in solicitudes if s.get("estado") == "Pendiente"])
     proceso = len([s for s in solicitudes if s.get("estado") == "En proceso"])
     resueltos = len([s for s in solicitudes if s.get("estado") == "Resuelto"])
-    cerrados = len([s for s in solicitudes if s.get("estado") == "Cerrado"])
+    rechazados = len([s for s in solicitudes if s.get("estado") == "Rechazado"])
+    devueltos = len([s for s in solicitudes if s.get("estado") == "Devuelto"])
 
     inicio = offset
     fin = offset + per_page
@@ -546,7 +547,8 @@ def panel():
             pendientes=pendientes,
             proceso=proceso,
             resueltos=resueltos,
-            cerrados=cerrados,
+            devueltos=devueltos,
+            rechazados=rechazados,
             empleados=empleados,
             empresas=empresas,
             page=page,
@@ -851,6 +853,176 @@ def resolver_solicitud(id):
 
     return redirect(url_for("ver_solicitud", id=id))
 
+@app.route('/devolver/<int:id>', methods=["POST"])
+@login_required
+@solo_internos
+def devolver_solicitud(id):
+
+    from sharepoint_service import (
+        obtener_solicitud_por_id,
+        subir_adjunto,
+        actualizar_estado_solicitud,
+        obtener_adjuntos_para_correo
+    )
+
+    # Obtener el motivo y los archivos adjuntos
+    motivo_devolucion = request.form.get("motivo_devolucion", "").strip()
+    archivos = [
+        archivo for archivo in request.files.getlist("archivos")
+        if archivo and archivo.filename
+    ]
+
+    # Validar que el motivo sea obligatorio
+    if not motivo_devolucion:
+        flash("Debe indicar el motivo de la devolución.")
+        return redirect(url_for("ver_solicitud", id=id))
+
+    # Obtener la solicitud
+    solicitud = obtener_solicitud_por_id(id)
+
+    # Subir los documentos a SharePoint
+    for archivo in archivos:
+        resultado = subir_adjunto(
+            solicitud["radicado"],
+            archivo
+        )
+
+        if resultado not in (200, 201, 202):
+            flash(
+                "No fue posible subir uno de los documentos. "
+                "La solicitud no fue devuelta."
+            )
+            return redirect(url_for("ver_solicitud", id=id))
+
+    # Cambiar el estado de la solicitud
+    actualizar_estado_solicitud(
+        item_id=id,
+        nuevo_estado="Devuelto",
+        atendido_por=current_user.username
+    )
+
+    # Crear el correo de devolución
+    html = crear_html_devolucion(
+        solicitud,
+        motivo_devolucion
+    )
+
+    # Adjuntar documentos al correo si se cargaron archivos
+    if archivos:
+        adjuntos = obtener_adjuntos_para_correo(
+            solicitud["radicado"]
+        )
+    else:
+        adjuntos = []
+
+    # Enviar el correo al solicitante
+    try:
+        enviar_correo_resolucion(
+            solicitud,
+            html,
+            adjuntos
+        )
+
+        flash("Solicitud devuelta y correo enviado correctamente.")
+
+    except Exception as e:
+        print("ERROR ENVIANDO CORREO DE DEVOLUCIÓN:", e)
+
+        flash(
+            "La solicitud fue devuelta, pero ocurrió un error "
+            "al enviar el correo."
+        )
+
+    return redirect(url_for("ver_solicitud", id=id))
+
+
+# RECHAZAR SOLICITUD
+@app.route('/rechazar/<int:id>', methods=["POST"])
+@login_required
+@solo_internos
+def rechazar_solicitud(id):
+    from sharepoint_service import (
+        obtener_solicitud_por_id,
+        subir_adjunto,
+        actualizar_estado_solicitud,
+        obtener_adjuntos_para_correo
+    )
+    from correo_service import (
+        crear_html_rechazo,
+        enviar_correo_resolucion
+    )
+
+    motivo_rechazo = request.form.get(
+        "motivo_rechazo", ""
+    ).strip()
+
+    archivos = [
+        archivo
+        for archivo in request.files.getlist("archivos")
+        if archivo and archivo.filename
+    ]
+
+    if not motivo_rechazo:
+        flash("Debe indicar el motivo del rechazo.")
+        return redirect(url_for("ver_solicitud", id=id))
+
+    try:
+        solicitud = obtener_solicitud_por_id(id)
+
+        if not solicitud:
+            flash("No se encontró la solicitud.")
+            return redirect(url_for("panel"))
+
+        # Subir primero los documentos, si existen.
+        for archivo in archivos:
+            resultado = subir_adjunto(
+                solicitud["radicado"], archivo
+            )
+
+            if resultado not in (200, 201, 202):
+                flash(
+                    "No fue posible subir uno de los documentos. "
+                    "La solicitud no fue rechazada."
+                )
+                return redirect(url_for("ver_solicitud", id=id))
+
+        # Actualizar el estado en SharePoint.
+        actualizar_estado_solicitud(
+            item_id=id,
+            nuevo_estado="Rechazado",
+            atendido_por=current_user.username
+        )
+
+    except Exception as e:
+        print("ERROR RECHAZANDO SOLICITUD:", e)
+        flash("No fue posible rechazar la solicitud.")
+        return redirect(url_for("ver_solicitud", id=id))
+
+    # Preparar el correo con el motivo y los adjuntos.
+    html = crear_html_rechazo(solicitud, motivo_rechazo)
+
+    try:
+        if archivos:
+            adjuntos = obtener_adjuntos_para_correo(
+                solicitud["radicado"]
+            )
+        else:
+            adjuntos = []
+
+        enviar_correo_resolucion(
+            solicitud, html, adjuntos
+        )
+
+        flash("Solicitud rechazada y correo enviado correctamente.")
+
+    except Exception as e:
+        print("ERROR ENVIANDO CORREO DE RECHAZO:", e)
+        flash(
+            "La solicitud fue rechazada, pero ocurrió un error "
+            "al enviar el correo."
+        )
+
+    return redirect(url_for("ver_solicitud", id=id))
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))

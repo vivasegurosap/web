@@ -134,9 +134,14 @@
     	   <p>Resueltos</p>
 	</div>
 
+    <div class="stat-card">
+    <h3>{{ devueltos }}</h3>
+    <p>Devueltos</p>
+    </div>
+
  	<div class="stat-card">
-    	   <h3>{{ cerrados }}</h3>
-    	   <p>Cerrados</p>
+    	   <h3>{{ rechazados }}</h3>
+    	   <p>Rechazados</p>
 	</div>
 
     </div>
@@ -166,7 +171,8 @@
         <option value="Pendiente" {% if request.args.get('estado') == 'Pendiente' %}selected{% endif %}>Pendiente</option>
         <option value="En proceso" {% if request.args.get('estado') == 'En proceso' %}selected{% endif %}>En proceso</option>
         <option value="Resuelto" {% if request.args.get('estado') == 'Resuelto' %}selected{% endif %}>Resuelto</option>
-        <option value="Cerrado" {% if request.args.get('estado') == 'Cerrado' %}selected{% endif %}>Cerrado</option>
+        <option value="Devuelto" {% if request.args.get('estado') == 'Devuelto' %}selected{% endif %}>Devuelto</option>
+        <option value="Rechazado" {% if request.args.get('estado') == 'Rechazado' %}selected{% endif %}>Rechazado</option>
     </select>
 
       <select name="usuario" style="height:42px; padding:10px; border-radius:8px;">
@@ -279,9 +285,12 @@
 
     		{% elif s.estado == 'Resuelto' %}
         	    <span class="badge badge-resuelto">Resuelto</span>
+            
+            {% elif s.estado == 'Devuelto' %}
+            <span class="badge badge-devuelto">Devuelto</span>
 
-    		{% elif s.estado == 'Cerrado' %}
-        	    <span class="badge badge-cerrado">Cerrado</span>
+    		{% elif s.estado == 'Rechazado' %}
+        	    <span class="badge badge-rechazado">Rechazado</span>
 
     		{% else %}
         	    <span class="badge">Recibido</span>
@@ -295,7 +304,8 @@
         		    <option value="Pendiente">⚪ Pendiente</option>
         		    <option value="En proceso">🟡 En proceso</option>
         		    <option value="Resuelto">🟢 Resuelto</option>
-        		    <option value="Cerrado">🔴 Cerrar</option>
+                    <option value="Devuelto">🔴 Devuelto</option>
+        		    <option value="Rechazado">⛔ Rechazado</option>
     			</select>
 		    </div>
     		{% endif %}
@@ -422,24 +432,50 @@ function cerrarModal() {
 }
 </script>
 <script>
+
+
 function cambiarEstado(select, id) {
     const estado = select.value;
     if (!estado) return;
+
     if (estado === "Resuelto") {
         document.getElementById("resolver_id").value = id;
         document.getElementById("formResolver").action = "/resolver/" + id;
         document.getElementById("modalResolver").style.display = "block";
         return;
     }
+
+    if (estado === "Devuelto") {
+        document.getElementById("devolver_id").value = id;
+        document.getElementById("formDevolucion").action = "/devolver/" + id;
+        document.getElementById("modalDevolucion").style.display = "block";
+        return;
+    }
+
+    if (estado === "Rechazado") {
+        document.getElementById("rechazar_id").value = id;
+        document.getElementById("formRechazo").action = "/rechazar/" + id;
+        document.getElementById("modalRechazo").style.display = "block";
+        return;
+    }
+
     window.location.href = "/estado/" + id + "/" + estado;
 }
-function cerrarModalResolver(){
+
+function cerrarModalResolver() {
     document.getElementById("modalResolver").style.display = "none";
 }
+
+function cerrarModalDevolucion() {
+    document.getElementById("modalDevolucion").style.display = "none";
+}
+
+function cerrarModalRechazo() {
+    document.getElementById("modalRechazo").style.display = "none";
+}
+
 </script>
-<script>
-function cambiarAsignado(select,id){const usuario_id=select.value;if(usuario_id){window.location.href="/reasignar/"+id+"/"+usuario_id+"?next="+encodeURIComponent(window.location.pathname+window.location.search);}}
-</script>
+
 <!-- Modal Resolver Solicitud -->
 
 <div id="modalResolver" class="modal" style="display:none;">
@@ -505,5 +541,107 @@ function cambiarAsignado(select,id){const usuario_id=select.value;if(usuario_id)
     </div>
 
 </div>
+
+<div id="modalDevolucion" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:700px;">
+
+        <h2>Devolver Solicitud</h2>
+
+        <p>
+            Indique los requisitos que debe completar el solicitante y, si corresponde,
+            adjunte los documentos necesarios.
+        </p>
+
+        <form id="formDevolucion" method="POST" enctype="multipart/form-data">
+
+            <input type="hidden" id="devolver_id" name="id">
+
+            <label>Motivo de la devolución</label>
+
+            <textarea
+                name="motivo_devolucion"
+                rows="7"
+                style="width:100%;"
+                placeholder="Explique el motivo de la devolución y los documentos o requisitos que debe aportar el solicitante."
+                required></textarea>
+
+            <br><br>
+
+            <label>Adjuntar documentos (opcional)</label>
+
+            <input
+                type="file"
+                name="archivos"
+                id="archivosDevolucion"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+
+            <br><br>
+
+            <button type="submit">
+                Confirmar y enviar Devolución
+            </button>
+
+            <button type="button" onclick="cerrarModalDevolucion()">
+                Cancelar
+            </button>
+
+        </form>
+
+    </div>
+</div>
+
+<!-- Modal Rechazar Solicitud -->
+<div id="modalRechazo" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:700px;">
+
+        <h2>Rechazar Solicitud</h2>
+
+        <p>
+            Indique el motivo por el cual la solicitud no puede ser aceptada.
+            Puede adjuntar documentos que sustenten la decisión.
+        </p>
+
+        <form id="formRechazo" method="POST" enctype="multipart/form-data">
+
+            <input type="hidden" id="rechazar_id" name="id">
+
+            <label>Motivo del rechazo</label>
+
+            <textarea
+                name="motivo_rechazo"
+                rows="7"
+                style="width:100%;"
+                placeholder="Explique claramente el motivo del rechazo."
+                required></textarea>
+
+            <br><br>
+
+            <label>Adjuntar documentos (opcional)</label>
+
+            <input
+                type="file"
+                name="archivos"
+                id="archivosRechazo"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+
+            <br><br>
+
+            <button type="submit">
+                Confirmar y enviar rechazo
+            </button>
+
+            <button
+                type="button"
+                onclick="cerrarModalRechazo()">
+                Cancelar
+            </button>
+
+        </form>
+
+    </div>
+</div>
+
 </body>
 </html>

@@ -238,3 +238,12 @@ p {
     word-break: break-word;
     white-space: pre-line;
 }
+.badge-devuelto {
+    background-color: #fde2e2;
+    color: #000000;
+}
+
+.badge-rechazado {
+    background-color: #fffdfd00;
+    color: #000000;
+}

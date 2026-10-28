@@ -274,6 +274,286 @@ Por favor, no responda este mensaje de manera automática.
 </body>
 </html>
 """
+
+def crear_html_devolucion(solicitud, motivo_devolucion):
+
+    from html import escape
+
+    nombre = escape(str(solicitud.get("nombre_remitente") or "Cliente"))
+    radicado = escape(str(solicitud.get("radicado") or ""))
+    empresa = escape(str(solicitud.get("razon_social") or ""))
+    tipo = escape(str(solicitud.get("tipo_solicitud") or ""))
+
+    motivo = escape(motivo_devolucion).replace("\n", "<br>")
+
+    return f"""
+    <html>
+    <head>
+        <meta charset="UTF-8">
+    </head>
+    <body style="margin:0;padding:0;background:#edf2f7;font-family:'Segoe UI',Arial,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0"
+               style="background:#edf2f7;padding:40px 0;">
+            <tr>
+                <td align="center">
+                    <table width="500" cellpadding="0" cellspacing="0"
+                           style="background:white;border-radius:16px;overflow:hidden;">
+                        <tr>
+                            <td style="background:#1F7A83;padding:25px;text-align:center;">
+                                <img src="cid:logo_viva" width="110"
+                                     style="display:block;margin:0 auto 15px auto;height:auto;border:0;">
+                                <h1 style="margin:0;color:white;font-size:24px;">
+                                    Portal de Solicitudes VivaAP
+                                </h1>
+                                <p style="color:white;">
+                                    Vivaseguros Agencia de Seguros Ltda.
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:30px 35px;color:#4a5568;line-height:1.8;">
+                                <div style="background:#fff3f3;border:2px solid #dc6b6b;
+                                            border-radius:12px;padding:25px;text-align:center;">
+                                    <div style="font-size:42px;">&#10006;</div>
+                                    <h2 style="color:#b42318;margin:8px 0;">
+                                        Solicitud DEVUELTA
+                                    </h2>
+                                    <p style="margin:0;">
+                                        Por favor, ingrese al portal y complete los requisitos
+                                        indicados por el asesor en el motivo de la devolución.
+                                    </p>
+                                </div>
+
+                                <p style="font-size:17px;margin-top:28px;">
+                                    Estimado(a) <strong>{nombre}</strong>:
+                                </p>
+
+                                <p>
+                                    Le informamos que la solicitud registrada con el
+                                    siguiente radicado no pudo ser aceptada.
+                                </p>
+
+                                <div style="border:1px solid #dfe6ee;border-radius:10px;
+                                            overflow:hidden;margin:25px 0;">
+                                    <div style="background:#1F7A83;color:white;
+                                                padding:14px 18px;font-weight:bold;">
+                                        Resumen de la solicitud
+                                    </div>
+                                    <table width="100%" cellpadding="12" cellspacing="0">
+                                        <tr>
+                                            <td style="font-weight:bold;">Radicado</td>
+                                            <td>{radicado}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight:bold;">Empresa</td>
+                                            <td>{empresa}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight:bold;">Tipo</td>
+                                            <td>{tipo}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight:bold;">Estado</td>
+                                            <td>
+                                                <span style="background:#fde2e2;color:#b42318;
+                                                             padding:6px 12px;border-radius:20px;
+                                                             font-weight:bold;">
+                                                    DEVUELTO
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <h3 style="color:#1F7A83;">Motivo de la devolución</h3>
+                                <div style="background:#fcfcfc;border-left:5px solid #b42318;
+                                            padding:20px;border-radius:8px;color:#444;">
+                                    {motivo}
+                                </div>
+
+                                <div style="margin-top:25px;padding:20px;background:#eef8ff;
+                                            border-left:5px solid #1F7A83;border-radius:8px;">
+                                    <strong>¿Qué debe hacer ahora?</strong>
+                                    <p style="margin-bottom:0;">
+                                        Ingrese al Portal de Solicitudes VivaAP y complete
+                                        los requisitos indicados por el asesor en el motivo
+                                        de la devolución. Verifique las observaciones y adjunte
+                                        los documentos solicitados, cuando corresponda.
+                                    </p>
+                                    <p style="margin-bottom:0;">
+                                        Puede ingresar al portal desde:
+                                        <a href="https://vivaap.onrender.com">
+                                            https://vivaap.onrender.com
+                                        </a>
+                                    </p>
+                                </div>
+
+                                <p style="margin-top:30px;">
+                                    Gracias por su comprensión.
+                                </p>
+
+                                <p>
+                                    <strong style="color:#1F7A83;">Equipo Operativo</strong><br>
+                                    Portal de Solicitudes VivaAP<br>
+                                    Vivaseguros Agencia de Seguros Ltda.
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="background:#1F7A83;padding:20px;text-align:center;color:white;">
+                                <p style="margin:0;font-size:13px;">
+                                    Correo generado automáticamente por el Portal de Solicitudes VivaAP.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+
+def crear_html_rechazo(solicitud, motivo_rechazo):
+
+    from html import escape
+
+    nombre = escape(str(solicitud.get("nombre_remitente") or "Cliente"))
+    radicado = escape(str(solicitud.get("radicado") or ""))
+    empresa = escape(str(solicitud.get("razon_social") or ""))
+    tipo = escape(str(solicitud.get("tipo_solicitud") or ""))
+
+    motivo = escape(str(motivo_rechazo)).replace("\n", "<br>")
+
+    return f"""
+    <html>
+    <head>
+        <meta charset="UTF-8">
+    </head>
+    <body style="margin:0;padding:0;background:#edf2f7;font-family:'Segoe UI',Arial,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0"
+               style="background:#edf2f7;padding:40px 0;">
+            <tr>
+                <td align="center">
+                    <table width="500" cellpadding="0" cellspacing="0"
+                           style="background:white;border-radius:16px;overflow:hidden;">
+                        <tr>
+                            <td style="background:#1F7A83;padding:25px;text-align:center;">
+                                <img src="cid:logo_viva" width="110"
+                                     style="display:block;margin:0 auto 15px auto;height:auto;border:0;">
+                                <h1 style="margin:0;color:white;font-size:24px;">
+                                    Portal de Solicitudes VivaAP
+                                </h1>
+                                <p style="color:white;">
+                                    Vivaseguros Agencia de Seguros Ltda.
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:30px 35px;color:#4a5568;line-height:1.8;">
+                                <div style="background:#fff3f3;border:2px solid #dc6b6b;
+                                            border-radius:12px;padding:25px;text-align:center;">
+                                    <div style="font-size:42px;">&#10006;</div>
+                                    <h2 style="color:#b42318;margin:8px 0;">
+                                        Solicitud RECHAZADA
+                                    </h2>
+                                    <p style="margin:0;">
+                                        Le informamos que, después de revisar la solicitud,
+                                        se ha determinado que no es posible aceptarla.
+                                        A continuación encontrará el motivo de esta decisión.
+                                    </p>
+                                </div>
+
+                                <p style="font-size:17px;margin-top:28px;">
+                                    Estimado(a) <strong>{nombre}</strong>:
+                                </p>
+
+                                <p>
+                                    Le informamos que la solicitud registrada con el siguiente
+                                    radicado ha sido rechazada. Consulte el motivo detallado
+                                    a continuación.
+                                </p>
+
+                                <div style="border:1px solid #dfe6ee;border-radius:10px;
+                                            overflow:hidden;margin:25px 0;">
+                                    <div style="background:#1F7A83;color:white;
+                                                padding:14px 18px;font-weight:bold;">
+                                        Resumen de la solicitud
+                                    </div>
+                                    <table width="100%" cellpadding="12" cellspacing="0">
+                                        <tr>
+                                            <td style="font-weight:bold;">Radicado</td>
+                                            <td>{radicado}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight:bold;">Empresa</td>
+                                            <td>{empresa}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight:bold;">Tipo</td>
+                                            <td>{tipo}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight:bold;">Estado</td>
+                                            <td>
+                                                <span style="background:#fde2e2;color:#b42318;
+                                                             padding:6px 12px;border-radius:20px;
+                                                             font-weight:bold;">
+                                                    RECHAZADO
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+
+                                <h3 style="color:#1F7A83;">Motivo del rechazo</h3>
+                                <div style="background:#fcfcfc;border-left:5px solid #b42318;
+                                            padding:20px;border-radius:8px;color:#444;">
+                                    {motivo}
+                                </div>
+
+                                <div style="margin-top:25px;padding:20px;background:#eef8ff;
+                                            border-left:5px solid #1F7A83;border-radius:8px;">
+                                    <strong>Información importante</strong>
+                                    <p style="margin-bottom:0;">
+                                        Esta solicitud ha sido marcada como rechazada.
+                                        Si requiere aclaraciones sobre la decisión, puede
+                                        comunicarse con el asesor responsable.
+                                    </p>
+                                    <p style="margin-bottom:0;">
+                                        Puede consultar el portal desde:
+                                        <a href="https://vivaap.onrender.com">
+                                            https://vivaap.onrender.com
+                                        </a>
+                                    </p>
+                                </div>
+
+                                <p style="margin-top:30px;">
+                                    Gracias por su comprensión.
+                                </p>
+
+                                <p>
+                                    <strong style="color:#1F7A83;">Equipo Operativo</strong><br>
+                                    Portal de Solicitudes VivaAP<br>
+                                    Vivaseguros Agencia de Seguros Ltda.
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="background:#1F7A83;padding:20px;text-align:center;color:white;">
+                                <p style="margin:0;font-size:13px;">
+                                    Correo generado automáticamente por el Portal de Solicitudes VivaAP.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+
 def enviar_correo_resolucion(solicitud, html, adjuntos=None):
 
     tenant_id = os.getenv("TENANT_ID")
