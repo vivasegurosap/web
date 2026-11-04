@@ -52,11 +52,12 @@ login_manager.init_app(app)
 login_manager.login_view = "login"
 
 class User(UserMixin):
-    def __init__(self, id, username, rol, nombre_completo):
+    def __init__(self, id, username, rol, nombre_completo, correo=None):
         self.id = str(id)
         self.username = username
         self.rol = rol
         self.nombre_completo = nombre_completo
+        self.correo = correo
 
 def generar_password_temporal():
 
@@ -81,7 +82,8 @@ def load_user(user_id):
             user["id"],
             user["username"],
             user["rol"],
-            user["nombre_completo"]
+            user["nombre_completo"],
+            user.get("correo")
         )
 
     return None
@@ -114,7 +116,8 @@ def login():
                     user["id"],
                     user["username"],
                     user["rol"],
-                    user["nombre_completo"]
+                    user["nombre_completo"],
+                    user.get("correo")
                 ))
 
                 # Si la contraseña es temporal
@@ -723,6 +726,13 @@ def crear_solicitud():
     except Exception as e:
         print("ERROR SHAREPOINT:", e)
 
+    usuario_asignado = obtener_usuario_por_id(asignado_a)
+
+    if not usuario_asignado or not usuario_asignado.get("correo"):
+        raise Exception("No se pudo obtener el correo del empleado asignado.")
+
+    correo_asignado = usuario_asignado["correo"]
+
     # Enviar correo mediante Microsoft Graph
     try:
 
@@ -734,7 +744,9 @@ def crear_solicitud():
             telefono_contacto=request.form['telefono_contacto'],
             poliza=request.form['poliza'],
             tipo_solicitud=request.form['tipo_solicitud'],
-            descripcion=request.form['descripcion']
+            descripcion=request.form['descripcion'],
+            correo_creador=current_user.correo,
+            correo_asignado=correo_asignado
         )
 
         print("CORREO NUEVA SOLICITUD ENVIADO CORRECTAMENTE")

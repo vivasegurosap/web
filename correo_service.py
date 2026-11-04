@@ -728,13 +728,14 @@ def enviar_correo_nueva_solicitud(
     telefono_contacto,
     poliza,
     tipo_solicitud,
-    descripcion
+    descripcion,
+    correo_creador,
+    correo_asignado
 ):
 
     tenant_id = os.getenv("TENANT_ID")
     client_id = os.getenv("CLIENT_ID")
     client_secret = os.getenv("CLIENT_SECRET")
-
     correo_remitente = os.getenv("MAIL_USERNAME")
 
     if not tenant_id:
@@ -746,10 +747,16 @@ def enviar_correo_nueva_solicitud(
     if not client_secret:
         raise Exception("Falta CLIENT_SECRET en las variables de entorno.")
 
-    # =========================================================
-    # 1. Obtener token Microsoft Graph
-    # =========================================================
+    if not correo_remitente:
+        raise Exception("Falta MAIL_USERNAME en las variables de entorno.")
 
+    if not correo_contacto:
+        raise Exception("No se indicó el correo del destinatario.")
+
+    if not correo_creador:
+        raise Exception("No se pudo identificar el correo de quien creó la solicitud.")
+
+    # 1. Obtener token Microsoft Graph
     token_url = (
         f"https://login.microsoftonline.com/"
         f"{tenant_id}/oauth2/v2.0/token"
@@ -771,83 +778,75 @@ def enviar_correo_nueva_solicitud(
     if token_response.status_code != 200:
         raise Exception(
             f"Error obteniendo token Microsoft Graph: "
-            f"{token_response.status_code} - "
-            f"{token_response.text}"
+            f"{token_response.status_code} - {token_response.text}"
         )
 
     access_token = token_response.json()["access_token"]
 
-    # =========================================================
-    # 2. Destinatarios
-    # =========================================================
+    # 2. Cuerpo del correo
+    cuerpo = f"""
+NUEVA SOLICITUD RADICADA
 
-    destinatarios = [
-        "tecnologiasvisuales940@gmail.com",
-        "lider.estrategia@vivasegurosltda.com.co"
+Radicado: {radicado}
+
+Razón Social: {razon_social}
+Nombre: {nombre_remitente}
+Correo: {correo_contacto}
+Teléfono: {telefono_contacto}
+Póliza: {poliza}
+Tipo: {tipo_solicitud}
+
+Descripción:
+{descripcion}
+"""
+
+    # 3. Destinatario principal: persona a quien se le creó el ticket
+    to_recipients = [
+        {
+            "emailAddress": {
+                "address": correo_contacto.strip()
+            }
+        }
     ]
 
-    # =========================================================
-    # 3. Cuerpo del correo
-    # =========================================================
+    # 4. Copias: creador y empleado asignado
+    cc_recipients = []
 
-    cuerpo = f"""
-    NUEVA SOLICITUD RADICADA
+    correos_cc = {
+        correo_creador.strip().lower(),
+        correo_asignado.strip().lower()
+    }
 
-    Radicado: {radicado}
+    correo_principal = correo_contacto.strip().lower()
 
-    Razón Social: {razon_social}
-    Nombre: {nombre_remitente}
-    Correo: {correo_contacto}
-    Teléfono: {telefono_contacto}
-    Póliza: {poliza}
-    Tipo: {tipo_solicitud}
+    for correo in correos_cc:
 
-    Descripción:
-    {descripcion}
-    """
+        if correo and correo != correo_principal:
+            cc_recipients.append({
+                "emailAddress": {
+                    "address": correo
+                }
+            })
 
-    # =========================================================
-    # 4. Construir destinatarios Graph
-    # =========================================================
-
-    to_recipients = []
-
-    for correo in destinatarios:
-
-        to_recipients.append({
-            "emailAddress": {
-                "address": correo
-            }
-        })
-
-    # =========================================================
     # 5. Construir mensaje
-    # =========================================================
-
     mensaje = {
         "message": {
-
             "subject": (
                 f"{radicado} - "
                 f"{tipo_solicitud} - "
                 f"Póliza {poliza}"
             ),
-
             "body": {
                 "contentType": "Text",
                 "content": cuerpo
             },
-
-            "toRecipients": to_recipients
+            "toRecipients": to_recipients,
+            "ccRecipients": cc_recipients
         },
-
         "saveToSentItems": True
     }
 
-    # =========================================================
     # 6. Enviar mediante Microsoft Graph
-    # =========================================================
-
     url = (
         "https://graph.microsoft.com/v1.0/"
         f"users/{correo_remitente}/sendMail"
@@ -866,11 +865,9 @@ def enviar_correo_nueva_solicitud(
     )
 
     if response.status_code not in (200, 202):
-
         raise Exception(
             f"Error enviando correo de nueva solicitud: "
-            f"{response.status_code} - "
-            f"{response.text}"
+            f"{response.status_code} - {response.text}"
         )
 def enviar_correo_recuperacion(
     correo,

@@ -240,6 +240,7 @@ def obtener_usuario_por_id(id_usuario):
     r = requests.get(url, headers=headers)
 
     if r.status_code != 200:
+        print("ERROR OBTENIENDO USUARIO:", r.text)
         return None
 
     campos = r.json()["fields"]
@@ -248,6 +249,7 @@ def obtener_usuario_por_id(id_usuario):
         "id": id_usuario,
         "nombre_completo": campos.get("NombreCompleto"),
         "username": campos.get("Username"),
+        "correo": campos.get("Correo"),
         "rol": campos.get("Rol")
     }
 
